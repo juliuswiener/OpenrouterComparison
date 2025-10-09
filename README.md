@@ -18,8 +18,9 @@ A comprehensive dashboard for browsing and comparing AI models available on Open
 Simply open `index.html` in a web browser. The app will:
 1. Load the list of available models from OpenRouter API
 2. Display them in an interactive table
-3. Allow you to click "Load All Stats" to fetch detailed performance metrics
-4. Cache the data locally for faster subsequent loads
+3. **Automatically fetch detailed performance metrics** (on first visit)
+4. Cache the data locally in localStorage for instant loads on subsequent visits
+5. Click "Refresh All Stats" to update the cached data
 
 ## Tech Stack
 

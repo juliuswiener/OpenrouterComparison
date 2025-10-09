@@ -124,6 +124,17 @@ const ModelsDashboard = () => {
       });
   }, []);
 
+  // Auto-load stats if we have models but no cached stats
+  useEffect(() => {
+    if (models.length > 0 && Object.keys(detailedStats).length === 0 && !loadingStats) {
+      // Small delay to let the UI render first
+      const timer = setTimeout(() => {
+        loadAllStats();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [models, detailedStats, loadingStats]);
+
   const saveStatsToCache = (stats) => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(stats));
