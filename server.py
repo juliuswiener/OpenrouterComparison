@@ -40,6 +40,7 @@ def get_stats():
     try:
         url = f'https://openrouter.ai/api/frontend/stats/endpoint?permaslug={permaslug}&variant={variant}'
         response = requests.get(url)
+        # Return the response as-is to preserve error structure
         return jsonify(response.json())
     except Exception as e:
         return jsonify({'error': str(e)}), 500

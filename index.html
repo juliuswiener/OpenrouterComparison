@@ -91,8 +91,20 @@ const ModelsDashboard = () => {
   const [filterModality, setFilterModality] = useState('all');
   const [filterReasoning, setFilterReasoning] = useState('all');
   const [filterFree, setFilterFree] = useState('all');
+  const [filterFeatures, setFilterFeatures] = useState({
+    tools: false,
+    json: false,
+    response_format: false,
+    tool_choice: false
+  });
+  const [minContext, setMinContext] = useState(0);
+  const [maxPromptPrice, setMaxPromptPrice] = useState(0.01);
+  const [maxCompletionPrice, setMaxCompletionPrice] = useState(0.01);
   const [expandedRow, setExpandedRow] = useState(null);
   const [hasAttemptedAutoLoad, setHasAttemptedAutoLoad] = useState(false);
+  const [activeTab, setActiveTab] = useState('table');
+  const [plotXAxis, setPlotXAxis] = useState('latency');
+  const [plotYAxis, setPlotYAxis] = useState('throughput');
 
   const STORAGE_KEY = 'openrouter_detailed_stats';
   const STORAGE_TIMESTAMP_KEY = 'openrouter_stats_timestamp';
@@ -118,11 +130,18 @@ const ModelsDashboard = () => {
       ? '/api/models'
       : 'https://openrouter.ai/api/v1/models';
 
-    fetch(apiUrl)
+    // Always fetch fresh data (no caching)
+    fetch(apiUrl, {
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache'
+      }
+    })
       .then(res => res.json())
       .then(data => {
         setModels(data.data || []);
         setLoading(false);
+        console.log(`✓ Loaded ${data.data?.length || 0} models from API`);
         // Debug: log first model to see structure
         if (data.data && data.data.length > 0 && !window._modelsLogged) {
           console.log('Sample model data structure:', JSON.stringify(data.data[0], null, 2));
@@ -167,32 +186,34 @@ const ModelsDashboard = () => {
 
       // Use proxy server if running on localhost
       const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-      const url = isLocalhost
-        ? `/api/stats?permaslug=${permaslug}&variant=standard`
-        : `https://openrouter.ai/api/frontend/stats/endpoint?permaslug=${permaslug}&variant=standard`;
 
-      const response = await fetch(url);
-      const data = await response.json();
+      // Try multiple variants in order: standard, free, extended
+      const variants = ['standard', 'free', 'extended'];
 
-      // Check for errors
-      if (data.error) {
-        console.warn(`No stats for ${slug}:`, data.error.message);
-        return { modelId: model.id, stats: null };
+      for (const variant of variants) {
+        const url = isLocalhost
+          ? `/api/stats?permaslug=${permaslug}&variant=${variant}`
+          : `https://openrouter.ai/api/frontend/stats/endpoint?permaslug=${permaslug}&variant=${variant}`;
+
+        const response = await fetch(url);
+        const data = await response.json();
+
+        // Debug: log first result to see structure
+        if (data.data && data.data.length > 0 && !window._statsLogged) {
+          console.log('Sample stats data structure:', JSON.stringify(data.data[0], null, 2));
+          window._statsLogged = true;
+        }
+
+        // If we got valid data, return it
+        if (data.data && data.data.length > 0) {
+          return { modelId: model.id, stats: data.data[0], variant };
+        }
       }
 
-      // Debug: log first result to see structure
-      if (data.data && data.data.length > 0 && !window._statsLogged) {
-        console.log('Sample stats data structure:', JSON.stringify(data.data[0], null, 2));
-        window._statsLogged = true;
-      }
-
-      if (data.data && data.data.length > 0) {
-        return { modelId: model.id, stats: data.data[0] };
-      }
-      return { modelId: model.id, stats: null };
+      // If all variants failed, return null
+      return { modelId: model.id, stats: null, error: 'No stats found in any variant' };
     } catch (err) {
-      console.error(`Error fetching stats for ${model.id}:`, err);
-      return { modelId: model.id, stats: null };
+      return { modelId: model.id, stats: null, error: err.message };
     }
   };
 
@@ -200,42 +221,61 @@ const ModelsDashboard = () => {
     setLoadingStats(true);
     const total = models.length;
     setStatsProgress({ current: 0, total });
-    
+
     // Process in batches to avoid overwhelming the API
     const batchSize = 5;
     const batches = [];
-    
+
     for (let i = 0; i < models.length; i += batchSize) {
       batches.push(models.slice(i, i + batchSize));
     }
-    
+
     let allStats = { ...detailedStats };
-    
+    const modelsWithoutStats = [];
+
     for (let i = 0; i < batches.length; i++) {
       const batch = batches[i];
       const results = await Promise.all(
         batch.map(model => fetchDetailedStats(model))
       );
-      
+
       // Update accumulated stats
-      results.forEach(({ modelId, stats }) => {
-        if (stats) allStats[modelId] = stats;
+      results.forEach(({ modelId, stats, error }) => {
+        if (stats) {
+          allStats[modelId] = stats;
+        } else {
+          // Track models that had no stats
+          const model = models.find(m => m.id === modelId);
+          if (model) {
+            modelsWithoutStats.push({
+              id: model.id,
+              name: model.name,
+              error: error
+            });
+          }
+        }
       });
-      
+
       // Update state with this batch's results
       setDetailedStats(allStats);
-      
+
       setStatsProgress({ current: Math.min((i + 1) * batchSize, total), total });
-      
+
       // Small delay between batches to be nice to the API
       if (i < batches.length - 1) {
         await new Promise(resolve => setTimeout(resolve, 200));
       }
     }
-    
+
+    // Log models without stats for debugging
+    if (modelsWithoutStats.length > 0) {
+      console.log(`\n📊 Models without stats (${modelsWithoutStats.length}):`);
+      console.table(modelsWithoutStats);
+    }
+
     // Save to localStorage after all batches complete
     saveStatsToCache(allStats);
-    
+
     setLoadingStats(false);
     setStatsProgress({ current: total, total });
   };
@@ -348,14 +388,14 @@ const ModelsDashboard = () => {
 
   const filteredAndSorted = useMemo(() => {
     let filtered = models.filter(m => {
-      const matchesSearch = search === '' || 
+      const matchesSearch = search === '' ||
         m.name.toLowerCase().includes(search.toLowerCase()) ||
         m.id.toLowerCase().includes(search.toLowerCase());
-      
-      const matchesModality = filterModality === 'all' || 
+
+      const matchesModality = filterModality === 'all' ||
         (filterModality === 'text' && m.architecture.modality.includes('text->text')) ||
         (filterModality === 'vision' && m.architecture.modality.includes('image'));
-      
+
       const matchesReasoning = filterReasoning === 'all' ||
         (filterReasoning === 'yes' && hasReasoning(m)) ||
         (filterReasoning === 'no' && !hasReasoning(m));
@@ -365,7 +405,25 @@ const ModelsDashboard = () => {
         (filterFree === 'yes' && isFree) ||
         (filterFree === 'no' && !isFree);
 
-      return matchesSearch && matchesModality && matchesReasoning && matchesFree;
+      // Check all selected features (all must match if checked)
+      const hasAnyFeatureFilter = Object.values(filterFeatures).some(v => v);
+      const matchesFeatures = !hasAnyFeatureFilter || (
+        (!filterFeatures.tools || m.supported_parameters?.includes('tools')) &&
+        (!filterFeatures.json || m.supported_parameters?.includes('structured_outputs')) &&
+        (!filterFeatures.response_format || m.supported_parameters?.includes('response_format')) &&
+        (!filterFeatures.tool_choice || m.supported_parameters?.includes('tool_choice'))
+      );
+
+      // Context length filter
+      const contextLength = m.context_length || 0;
+      const matchesContext = contextLength >= minContext;
+
+      // Price filters
+      const promptPrice = parseFloat(m.pricing.prompt);
+      const completionPrice = parseFloat(m.pricing.completion);
+      const matchesPrice = promptPrice <= maxPromptPrice && completionPrice <= maxCompletionPrice;
+
+      return matchesSearch && matchesModality && matchesReasoning && matchesFree && matchesFeatures && matchesContext && matchesPrice;
     });
 
     filtered.sort((a, b) => {
@@ -410,7 +468,7 @@ const ModelsDashboard = () => {
     });
 
     return filtered;
-  }, [models, search, sortBy, sortDir, filterModality, filterReasoning, filterFree, detailedStats]);
+  }, [models, search, sortBy, sortDir, filterModality, filterReasoning, filterFree, filterFeatures, minContext, maxPromptPrice, maxCompletionPrice, detailedStats]);
 
   const handleSort = (field) => {
     if (sortBy === field) {
@@ -450,6 +508,31 @@ const ModelsDashboard = () => {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">OpenRouter Models Dashboard</h1>
           <p className="text-gray-600">{filteredAndSorted.length} of {models.length} models</p>
+
+          {/* Tabs */}
+          <div className="flex gap-2 mt-4 border-b border-gray-200">
+            <button
+              onClick={() => setActiveTab('table')}
+              className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+                activeTab === 'table'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Table View
+            </button>
+            <button
+              onClick={() => setActiveTab('chart')}
+              className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+                activeTab === 'chart'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Chart View
+            </button>
+          </div>
+
           <div className="flex items-center gap-4 mt-2">
             {statsLoadedCount > 0 && (
               <p className="text-sm text-gray-500">
@@ -478,8 +561,8 @@ const ModelsDashboard = () => {
         )}
 
         <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
-            <div className="md:col-span-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+            <div className="lg:col-span-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <input
@@ -491,7 +574,7 @@ const ModelsDashboard = () => {
                 />
               </div>
             </div>
-            
+
             <div>
               <select
                 value={filterModality}
@@ -526,6 +609,111 @@ const ModelsDashboard = () => {
                 <option value="yes">Free Only</option>
                 <option value="no">Paid Only</option>
               </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+            {/* Feature checkboxes */}
+            <div className="lg:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Features (all selected must match)</label>
+              <div className="flex flex-wrap gap-4">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={filterFeatures.tools}
+                    onChange={(e) => setFilterFeatures({...filterFeatures, tools: e.target.checked})}
+                    className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">Tools</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={filterFeatures.json}
+                    onChange={(e) => setFilterFeatures({...filterFeatures, json: e.target.checked})}
+                    className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">JSON/Structured</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={filterFeatures.response_format}
+                    onChange={(e) => setFilterFeatures({...filterFeatures, response_format: e.target.checked})}
+                    className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">Response Format</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={filterFeatures.tool_choice}
+                    onChange={(e) => setFilterFeatures({...filterFeatures, tool_choice: e.target.checked})}
+                    className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">Tool Choice</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Min Context Slider */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Min Context: {minContext >= 1000000 ? `${(minContext/1000000).toFixed(1)}M` : minContext >= 1000 ? `${(minContext/1000).toFixed(0)}K` : minContext}
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="2000000"
+                step="10000"
+                value={minContext}
+                onChange={(e) => setMinContext(parseInt(e.target.value))}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+              />
+            </div>
+
+            {/* Max Input Price Slider */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Max Input Price: ${maxPromptPrice.toFixed(6)}
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="0.01"
+                step="0.000001"
+                value={maxPromptPrice}
+                onChange={(e) => setMaxPromptPrice(parseFloat(e.target.value))}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+              />
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>$0</span>
+                <span>$0.01</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+            <div className="lg:col-span-2"></div>
+            <div></div>
+            {/* Max Output Price Slider */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Max Output Price: ${maxCompletionPrice.toFixed(6)}
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="0.01"
+                step="0.000001"
+                value={maxCompletionPrice}
+                onChange={(e) => setMaxCompletionPrice(parseFloat(e.target.value))}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+              />
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>$0</span>
+                <span>$0.01</span>
+              </div>
             </div>
           </div>
           
@@ -581,6 +769,7 @@ const ModelsDashboard = () => {
           </div>
         </div>
 
+        {activeTab === 'table' && (
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -699,82 +888,86 @@ const ModelsDashboard = () => {
                       {expandedRow === model.id && (
                         <tr className="bg-gray-50">
                           <td colSpan="8" className="px-4 py-4">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                              <div className="space-y-2">
-                                <h4 className="font-semibold text-gray-900 mb-2">Model Details</h4>
-                                <div className="flex justify-between">
-                                  <span className="text-gray-600">Max Prompt:</span>
-                                  <span className="font-medium">{formatContext(stats?.max_prompt_tokens || model.top_provider?.context_length)}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-gray-600">Max Completion:</span>
-                                  <span className="font-medium">{formatContext(stats?.max_completion_tokens || model.top_provider?.max_completion_tokens)}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-gray-600">Can Abort:</span>
-                                  <span className="font-medium">{stats?.can_abort ? '✓' : stats ? '✗' : 'N/A'}</span>
-                                </div>
-                                {stats?.stats && (
+                            <div className="space-y-4">
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                                <div className="space-y-2">
+                                  <h4 className="font-semibold text-gray-900 mb-2">Model Details</h4>
                                   <div className="flex justify-between">
-                                    <span className="text-gray-600">Requests:</span>
-                                    <span className="font-medium">{stats.stats.request_count}</span>
+                                    <span className="text-gray-600">Max Prompt:</span>
+                                    <span className="font-medium">{formatContext(stats?.max_prompt_tokens || model.top_provider?.context_length)}</span>
                                   </div>
-                                )}
-                              </div>
-                              
-                              <div className="space-y-2">
-                                <h4 className="font-semibold text-gray-900 mb-2">Capabilities</h4>
-                                <div className="space-y-1">
-                                  <div className="flex items-center gap-2">
-                                    {model.supported_parameters?.includes('response_format') ? (
-                                      <CheckCircle className="w-4 h-4 text-green-600" />
-                                    ) : (
-                                      <XCircle className="w-4 h-4 text-gray-300" />
-                                    )}
-                                    <span className="text-gray-700">Response Format</span>
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-600">Max Completion:</span>
+                                    <span className="font-medium">{formatContext(stats?.max_completion_tokens || model.top_provider?.max_completion_tokens)}</span>
                                   </div>
-                                  <div className="flex items-center gap-2">
-                                    {model.supported_parameters?.includes('tool_choice') ? (
-                                      <CheckCircle className="w-4 h-4 text-green-600" />
-                                    ) : (
-                                      <XCircle className="w-4 h-4 text-gray-300" />
-                                    )}
-                                    <span className="text-gray-700">Tool Choice</span>
+                                  <div className="flex justify-between">
+                                    <span className="text-gray-600">Can Abort:</span>
+                                    <span className="font-medium">{stats?.can_abort ? '✓' : stats ? '✗' : 'N/A'}</span>
                                   </div>
-                                  <div className="flex items-center gap-2">
-                                    {stats?.supports_multipart ? (
-                                      <CheckCircle className="w-4 h-4 text-green-600" />
-                                    ) : (
-                                      <XCircle className="w-4 h-4 text-gray-300" />
-                                    )}
-                                    <span className="text-gray-700">Multipart</span>
+                                  {stats?.stats && (
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-600">Requests:</span>
+                                      <span className="font-medium">{stats.stats.request_count?.toLocaleString()}</span>
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="space-y-2">
+                                  <h4 className="font-semibold text-gray-900 mb-2">Capabilities</h4>
+                                  <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                      {model.supported_parameters?.includes('response_format') ? (
+                                        <CheckCircle className="w-4 h-4 text-green-600" />
+                                      ) : (
+                                        <XCircle className="w-4 h-4 text-gray-300" />
+                                      )}
+                                      <span className="text-gray-700">Response Format</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      {model.supported_parameters?.includes('tool_choice') ? (
+                                        <CheckCircle className="w-4 h-4 text-green-600" />
+                                      ) : (
+                                        <XCircle className="w-4 h-4 text-gray-300" />
+                                      )}
+                                      <span className="text-gray-700">Tool Choice</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      {stats?.supports_multipart ? (
+                                        <CheckCircle className="w-4 h-4 text-green-600" />
+                                      ) : (
+                                        <XCircle className="w-4 h-4 text-gray-300" />
+                                      )}
+                                      <span className="text-gray-700">Multipart</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      {stats?.moderation_required ? (
+                                        <AlertCircle className="w-4 h-4 text-yellow-600" />
+                                      ) : (
+                                        <CheckCircle className="w-4 h-4 text-green-600" />
+                                      )}
+                                      <span className="text-gray-700">Moderation {stats?.moderation_required ? 'Required' : 'Optional'}</span>
+                                    </div>
                                   </div>
-                                  <div className="flex items-center gap-2">
-                                    {stats?.moderation_required ? (
-                                      <AlertCircle className="w-4 h-4 text-yellow-600" />
-                                    ) : (
-                                      <CheckCircle className="w-4 h-4 text-green-600" />
-                                    )}
-                                    <span className="text-gray-700">Moderation {stats?.moderation_required ? 'Required' : 'Optional'}</span>
+                                </div>
+
+                                <div className="space-y-2">
+                                  <h4 className="font-semibold text-gray-900 mb-2">Modalities</h4>
+                                  <div className="flex flex-wrap gap-1">
+                                    {model.architecture.input_modalities?.map((mod) => (
+                                      <span key={mod} className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                                        {mod}
+                                      </span>
+                                    ))}
                                   </div>
                                 </div>
                               </div>
-                              
-                              <div className="space-y-2">
-                                <h4 className="font-semibold text-gray-900 mb-2">Modalities</h4>
-                                <div className="flex flex-wrap gap-1">
-                                  {model.architecture.input_modalities?.map((mod) => (
-                                    <span key={mod} className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
-                                      {mod}
-                                    </span>
-                                  ))}
+
+                              {model.description && (
+                                <div className="pt-3 border-t border-gray-200">
+                                  <h4 className="font-semibold text-gray-900 mb-2 text-sm">Description</h4>
+                                  <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{model.description}</p>
                                 </div>
-                                {model.description && (
-                                  <div className="mt-3 pt-3 border-t border-gray-200">
-                                    <p className="text-xs text-gray-600 line-clamp-3">{model.description}</p>
-                                  </div>
-                                )}
-                              </div>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -786,10 +979,227 @@ const ModelsDashboard = () => {
             </table>
           </div>
         </div>
+        )}
+
+        {activeTab === 'chart' && (
+          <ScatterPlot
+            models={filteredAndSorted}
+            detailedStats={detailedStats}
+            xAxis={plotXAxis}
+            yAxis={plotYAxis}
+            onXAxisChange={setPlotXAxis}
+            onYAxisChange={setPlotYAxis}
+          />
+        )}
 
         <div className="mt-6 text-center text-sm text-gray-500">
           <p>💾 Data automatically saved to browser cache • Click "Refresh All Stats" to update • Export to CSV anytime</p>
         </div>
+      </div>
+    </div>
+  );
+};
+
+const ScatterPlot = ({ models, detailedStats, xAxis, yAxis, onXAxisChange, onYAxisChange }) => {
+  const [hoveredModel, setHoveredModel] = useState(null);
+  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+
+  const getAxisValue = (model, axis) => {
+    const stats = detailedStats[model.id];
+    switch(axis) {
+      case 'latency':
+        return stats?.stats?.p50_latency || stats?.p50_latency || null;
+      case 'throughput':
+        return stats?.stats?.p50_throughput || stats?.p50_throughput || null;
+      case 'prompt_price':
+        return parseFloat(model.pricing.prompt);
+      case 'completion_price':
+        return parseFloat(model.pricing.completion);
+      case 'context_length':
+        return model.context_length || null;
+      case 'request_count':
+        return stats?.stats?.request_count || null;
+      default:
+        return null;
+    }
+  };
+
+  const getAxisLabel = (axis) => {
+    switch(axis) {
+      case 'latency': return 'Latency (ms)';
+      case 'throughput': return 'Throughput (tok/s)';
+      case 'prompt_price': return 'Input Price ($)';
+      case 'completion_price': return 'Output Price ($)';
+      case 'context_length': return 'Context Length';
+      case 'request_count': return 'Request Count';
+      default: return axis;
+    }
+  };
+
+  // Filter models that have both x and y values
+  const plotData = models
+    .map(model => ({
+      model,
+      x: getAxisValue(model, xAxis),
+      y: getAxisValue(model, yAxis)
+    }))
+    .filter(d => d.x !== null && d.y !== null && !isNaN(d.x) && !isNaN(d.y));
+
+  if (plotData.length === 0) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm p-8 text-center">
+        <p className="text-gray-500">No data available for the selected axes. Try loading stats first or selecting different metrics.</p>
+      </div>
+    );
+  }
+
+  const xValues = plotData.map(d => d.x);
+  const yValues = plotData.map(d => d.y);
+  const xMin = Math.min(...xValues);
+  const xMax = Math.max(...xValues);
+  const yMin = Math.min(...yValues);
+  const yMax = Math.max(...yValues);
+
+  const padding = 60;
+  const width = 1000;
+  const height = 600;
+  const plotWidth = width - 2 * padding;
+  const plotHeight = height - 2 * padding;
+
+  const scaleX = (val) => padding + ((val - xMin) / (xMax - xMin)) * plotWidth;
+  const scaleY = (val) => height - padding - ((val - yMin) / (yMax - yMin)) * plotHeight;
+
+  const formatValue = (val, axis) => {
+    if (axis.includes('price')) return `$${val.toFixed(6)}`;
+    if (axis === 'latency') return `${val.toFixed(0)}ms`;
+    if (axis === 'throughput') return `${val.toFixed(1)} tok/s`;
+    if (axis === 'context_length') return val >= 1000000 ? `${(val/1000000).toFixed(1)}M` : `${(val/1000).toFixed(0)}K`;
+    if (axis === 'request_count') return val.toLocaleString();
+    return val.toFixed(2);
+  };
+
+  const axisOptions = [
+    { value: 'latency', label: 'Latency' },
+    { value: 'throughput', label: 'Throughput' },
+    { value: 'prompt_price', label: 'Input Price' },
+    { value: 'completion_price', label: 'Output Price' },
+    { value: 'context_length', label: 'Context Length' },
+    { value: 'request_count', label: 'Request Count' }
+  ];
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm p-6">
+      <div className="mb-6 flex gap-4">
+        <div className="flex-1">
+          <label className="block text-sm font-medium text-gray-700 mb-2">X-Axis</label>
+          <select
+            value={xAxis}
+            onChange={(e) => onXAxisChange(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+          >
+            {axisOptions.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex-1">
+          <label className="block text-sm font-medium text-gray-700 mb-2">Y-Axis</label>
+          <select
+            value={yAxis}
+            onChange={(e) => onYAxisChange(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+          >
+            {axisOptions.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="relative" style={{ width: '100%', overflowX: 'auto' }}>
+        <svg width={width} height={height} className="border border-gray-200 rounded">
+          {/* Grid lines */}
+          <g>
+            {[0, 0.25, 0.5, 0.75, 1].map(t => {
+              const x = padding + t * plotWidth;
+              const y = height - padding - t * plotHeight;
+              return (
+                <g key={t}>
+                  <line x1={x} y1={height - padding} x2={x} y2={padding} stroke="#e5e7eb" strokeWidth="1" />
+                  <line x1={padding} y1={y} x2={width - padding} y2={y} stroke="#e5e7eb" strokeWidth="1" />
+                </g>
+              );
+            })}
+          </g>
+
+          {/* Axes */}
+          <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#374151" strokeWidth="2" />
+          <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="#374151" strokeWidth="2" />
+
+          {/* Axis labels */}
+          <text x={width / 2} y={height - 10} textAnchor="middle" className="text-sm fill-gray-700">{getAxisLabel(xAxis)}</text>
+          <text x={20} y={height / 2} textAnchor="middle" transform={`rotate(-90, 20, ${height/2})`} className="text-sm fill-gray-700">{getAxisLabel(yAxis)}</text>
+
+          {/* Tick labels */}
+          {[0, 0.5, 1].map(t => {
+            const xVal = xMin + t * (xMax - xMin);
+            const yVal = yMin + t * (yMax - yMin);
+            const x = padding + t * plotWidth;
+            const y = height - padding - t * plotHeight;
+            return (
+              <g key={t}>
+                <text x={x} y={height - padding + 20} textAnchor="middle" className="text-xs fill-gray-600">{formatValue(xVal, xAxis)}</text>
+                <text x={padding - 10} y={y} textAnchor="end" className="text-xs fill-gray-600">{formatValue(yVal, yAxis)}</text>
+              </g>
+            );
+          })}
+
+          {/* Data points */}
+          {plotData.map(({ model, x, y }) => (
+            <g key={model.id}>
+              <circle
+                cx={scaleX(x)}
+                cy={scaleY(y)}
+                r="6"
+                fill="#3b82f6"
+                stroke="#1e40af"
+                strokeWidth="2"
+                className="cursor-pointer hover:fill-blue-700 transition-colors"
+                onMouseEnter={(e) => {
+                  setHoveredModel(model);
+                  const rect = e.target.getBoundingClientRect();
+                  setTooltipPos({ x: rect.left + window.scrollX, y: rect.top + window.scrollY - 10 });
+                }}
+                onMouseLeave={() => setHoveredModel(null)}
+              />
+            </g>
+          ))}
+        </svg>
+
+        {/* Tooltip */}
+        {hoveredModel && (
+          <div
+            className="fixed bg-gray-900 text-white px-3 py-2 rounded shadow-lg text-sm z-50 pointer-events-none"
+            style={{
+              left: `${tooltipPos.x}px`,
+              top: `${tooltipPos.y}px`,
+              transform: 'translate(-50%, -100%)'
+            }}
+          >
+            <div className="font-semibold mb-1">{hoveredModel.name}</div>
+            <div className="text-xs space-y-1">
+              <div>{getAxisLabel(xAxis)}: {formatValue(getAxisValue(hoveredModel, xAxis), xAxis)}</div>
+              <div>{getAxisLabel(yAxis)}: {formatValue(getAxisValue(hoveredModel, yAxis), yAxis)}</div>
+              <div className="text-gray-300 pt-1 border-t border-gray-700">
+                Price: ${parseFloat(hoveredModel.pricing.prompt).toFixed(6)} / ${parseFloat(hoveredModel.pricing.completion).toFixed(6)}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4 text-sm text-gray-500 text-center">
+        Showing {plotData.length} models with data for both axes
       </div>
     </div>
   );
