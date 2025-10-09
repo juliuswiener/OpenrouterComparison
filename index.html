@@ -92,6 +92,7 @@ const ModelsDashboard = () => {
   const [filterReasoning, setFilterReasoning] = useState('all');
   const [filterFree, setFilterFree] = useState('all');
   const [expandedRow, setExpandedRow] = useState(null);
+  const [hasAttemptedAutoLoad, setHasAttemptedAutoLoad] = useState(false);
 
   const STORAGE_KEY = 'openrouter_detailed_stats';
   const STORAGE_TIMESTAMP_KEY = 'openrouter_stats_timestamp';
@@ -112,11 +113,21 @@ const ModelsDashboard = () => {
   }, []);
 
   useEffect(() => {
-    fetch('https://openrouter.ai/api/v1/models')
+    // Use proxy server if running on localhost, otherwise direct API
+    const apiUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? '/api/models'
+      : 'https://openrouter.ai/api/v1/models';
+
+    fetch(apiUrl)
       .then(res => res.json())
       .then(data => {
         setModels(data.data || []);
         setLoading(false);
+        // Debug: log first model to see structure
+        if (data.data && data.data.length > 0 && !window._modelsLogged) {
+          console.log('Sample model data structure:', JSON.stringify(data.data[0], null, 2));
+          window._modelsLogged = true;
+        }
       })
       .catch(err => {
         console.error('Error fetching models:', err);
@@ -124,16 +135,18 @@ const ModelsDashboard = () => {
       });
   }, []);
 
-  // Auto-load stats if we have models but no cached stats
+  // Auto-load stats if we have models but no cached stats (only once)
+  // Only when running via proxy server (localhost)
   useEffect(() => {
-    if (models.length > 0 && Object.keys(detailedStats).length === 0 && !loadingStats) {
-      // Small delay to let the UI render first
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (isLocalhost && models.length > 0 && Object.keys(detailedStats).length === 0 && !loadingStats && !hasAttemptedAutoLoad) {
+      setHasAttemptedAutoLoad(true);
       const timer = setTimeout(() => {
         loadAllStats();
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [models, detailedStats, loadingStats]);
+  }, [models, detailedStats, loadingStats, hasAttemptedAutoLoad]);
 
   const saveStatsToCache = (stats) => {
     try {
@@ -149,9 +162,14 @@ const ModelsDashboard = () => {
   const fetchDetailedStats = async (model) => {
     try {
       const permaslug = encodeURIComponent(model.id);
-      const response = await fetch(
-        `https://openrouter.ai/api/frontend/stats/endpoint?permaslug=${permaslug}&variant=standard`
-      );
+
+      // Use proxy server if running on localhost
+      const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      const url = isLocalhost
+        ? `/api/stats?permaslug=${permaslug}&variant=standard`
+        : `https://openrouter.ai/api/frontend/stats/endpoint?permaslug=${permaslug}&variant=standard`;
+
+      const response = await fetch(url);
       const data = await response.json();
 
       // Debug: log first result to see structure
@@ -439,6 +457,18 @@ const ModelsDashboard = () => {
           </div>
         </div>
 
+        {window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' && (
+          <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+            <div className="flex">
+              <AlertCircle className="w-5 h-5 text-yellow-400 mr-3 flex-shrink-0" />
+              <div className="text-sm text-yellow-700">
+                <strong>Note:</strong> Performance stats (latency/throughput) require running the Python proxy server.
+                See README for instructions: <code className="bg-yellow-100 px-1 rounded">python3 server.py</code>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
             <div className="md:col-span-2">
@@ -497,7 +527,7 @@ const ModelsDashboard = () => {
                 <div className="text-sm text-gray-600">
                   Loading stats: {statsProgress.current} / {statsProgress.total}
                   <div className="w-48 bg-gray-200 rounded-full h-2 mt-1">
-                    <div 
+                    <div
                       className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                       style={{ width: `${(statsProgress.current / statsProgress.total) * 100}%` }}
                     ></div>
@@ -517,8 +547,7 @@ const ModelsDashboard = () => {
               )}
               <button
                 onClick={exportToCSV}
-                disabled={statsLoadedCount === 0}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
               >
                 <Download className="w-4 h-4" />
                 Export CSV
@@ -568,20 +597,20 @@ const ModelsDashboard = () => {
                   >
                     Input <SortIcon field="prompt" />
                   </th>
-                  <th 
+                  <th
                     className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                     onClick={() => handleSort('completion')}
                   >
                     Output <SortIcon field="completion" />
                   </th>
-                  <th 
+                  <th
                     className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                     onClick={() => handleSort('latency')}
                   >
                     <Clock className="w-4 h-4 inline mr-1" />
                     Latency <SortIcon field="latency" />
                   </th>
-                  <th 
+                  <th
                     className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                     onClick={() => handleSort('throughput')}
                   >
