@@ -161,7 +161,9 @@ const ModelsDashboard = () => {
 
   const fetchDetailedStats = async (model) => {
     try {
-      const permaslug = encodeURIComponent(model.id);
+      // Use canonical_slug if available, otherwise fall back to id
+      const slug = model.canonical_slug || model.id;
+      const permaslug = encodeURIComponent(slug);
 
       // Use proxy server if running on localhost
       const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
@@ -171,6 +173,12 @@ const ModelsDashboard = () => {
 
       const response = await fetch(url);
       const data = await response.json();
+
+      // Check for errors
+      if (data.error) {
+        console.warn(`No stats for ${slug}:`, data.error.message);
+        return { modelId: model.id, stats: null };
+      }
 
       // Debug: log first result to see structure
       if (data.data && data.data.length > 0 && !window._statsLogged) {
