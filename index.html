@@ -12,27 +12,71 @@
 <body>
     <div id="root"></div>
     
-    <script src="https://unpkg.com/lucide@latest"></script>
     <script type="text/babel">
 const { useState, useEffect, useMemo } = React;
 
-// Icon components using lucide
-const Search = (props) => React.createElement('i', { 'data-lucide': 'search', ...props });
-const TrendingUp = (props) => React.createElement('i', { 'data-lucide': 'trending-up', ...props });
-const DollarSign = (props) => React.createElement('i', { 'data-lucide': 'dollar-sign', ...props });
-const Zap = (props) => React.createElement('i', { 'data-lucide': 'zap', ...props });
-const Brain = (props) => React.createElement('i', { 'data-lucide': 'brain', ...props });
-const ChevronDown = (props) => React.createElement('i', { 'data-lucide': 'chevron-down', ...props });
-const ChevronUp = (props) => React.createElement('i', { 'data-lucide': 'chevron-up', ...props });
-const Filter = (props) => React.createElement('i', { 'data-lucide': 'filter', ...props });
-const AlertCircle = (props) => React.createElement('i', { 'data-lucide': 'alert-circle', ...props });
-const CheckCircle = (props) => React.createElement('i', { 'data-lucide': 'check-circle', ...props });
-const XCircle = (props) => React.createElement('i', { 'data-lucide': 'x-circle', ...props });
-const Clock = (props) => React.createElement('i', { 'data-lucide': 'clock', ...props });
-const Activity = (props) => React.createElement('i', { 'data-lucide': 'activity', ...props });
-const Download = (props) => React.createElement('i', { 'data-lucide': 'download', ...props });
-const Save = (props) => React.createElement('i', { 'data-lucide': 'save', ...props });
-const RefreshCw = (props) => React.createElement('i', { 'data-lucide': 'refresh-cw', ...props });
+// Simple SVG icon components (replacing lucide-react)
+const Search = ({ className = "w-5 h-5" }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+  </svg>
+);
+const ChevronDown = ({ className = "w-4 h-4" }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <polyline points="6 9 12 15 18 9"/>
+  </svg>
+);
+const ChevronUp = ({ className = "w-4 h-4" }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <polyline points="18 15 12 9 6 15"/>
+  </svg>
+);
+const Brain = ({ className = "w-3 h-3" }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/>
+    <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/>
+  </svg>
+);
+const CheckCircle = ({ className = "w-4 h-4" }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+  </svg>
+);
+const XCircle = ({ className = "w-4 h-4" }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>
+  </svg>
+);
+const AlertCircle = ({ className = "w-4 h-4" }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+  </svg>
+);
+const Clock = ({ className = "w-4 h-4" }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+  </svg>
+);
+const Zap = ({ className = "w-4 h-4" }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+  </svg>
+);
+const Download = ({ className = "w-4 h-4" }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+  </svg>
+);
+const Save = ({ className = "w-3 h-3" }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+  </svg>
+);
+const RefreshCw = ({ className = "w-4 h-4" }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+  </svg>
+);
 
 const ModelsDashboard = () => {
   const [models, setModels] = useState([]);
@@ -345,13 +389,6 @@ const ModelsDashboard = () => {
 
   const statsLoadedCount = Object.keys(detailedStats).length;
   const statsLoadedPercent = models.length > 0 ? Math.round((statsLoadedCount / models.length) * 100) : 0;
-
-  // Initialize lucide icons after render
-  useEffect(() => {
-    if (window.lucide) {
-      lucide.createIcons();
-    }
-  });
 
   if (loading) {
     return (
