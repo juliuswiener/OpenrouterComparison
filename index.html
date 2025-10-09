@@ -153,7 +153,13 @@ const ModelsDashboard = () => {
         `https://openrouter.ai/api/frontend/stats/endpoint?permaslug=${permaslug}&variant=standard`
       );
       const data = await response.json();
-      
+
+      // Debug: log first result to see structure
+      if (data.data && data.data.length > 0 && !window._statsLogged) {
+        console.log('Sample stats data structure:', JSON.stringify(data.data[0], null, 2));
+        window._statsLogged = true;
+      }
+
       if (data.data && data.data.length > 0) {
         return { modelId: model.id, stats: data.data[0] };
       }
@@ -247,8 +253,8 @@ const ModelsDashboard = () => {
         model.context_length || '',
         model.pricing.prompt,
         model.pricing.completion,
-        stats?.stats?.p50_latency || '',
-        stats?.stats?.p50_throughput || '',
+        stats?.stats?.p50_latency || stats?.p50_latency || '',
+        stats?.stats?.p50_throughput || stats?.p50_throughput || '',
         stats?.max_prompt_tokens || model.top_provider?.context_length || '',
         stats?.max_completion_tokens || model.top_provider?.max_completion_tokens || '',
         hasReasoning(model) ? 'Yes' : 'No',
@@ -357,12 +363,12 @@ const ModelsDashboard = () => {
           bVal = parseFloat(b.pricing.completion);
           break;
         case 'latency':
-          aVal = detailedStats[a.id]?.stats?.p50_latency || 999999;
-          bVal = detailedStats[b.id]?.stats?.p50_latency || 999999;
+          aVal = detailedStats[a.id]?.stats?.p50_latency || detailedStats[a.id]?.p50_latency || 999999;
+          bVal = detailedStats[b.id]?.stats?.p50_latency || detailedStats[b.id]?.p50_latency || 999999;
           break;
         case 'throughput':
-          aVal = detailedStats[a.id]?.stats?.p50_throughput || 0;
-          bVal = detailedStats[b.id]?.stats?.p50_throughput || 0;
+          aVal = detailedStats[a.id]?.stats?.p50_throughput || detailedStats[a.id]?.p50_throughput || 0;
+          bVal = detailedStats[b.id]?.stats?.p50_throughput || detailedStats[b.id]?.p50_throughput || 0;
           break;
         case 'created':
           aVal = a.created || 0;
@@ -617,12 +623,14 @@ const ModelsDashboard = () => {
                         </td>
                         <td className="px-4 py-3">
                           <span className="text-sm text-gray-900">
-                            {stats?.stats?.p50_latency ? formatLatency(stats.stats.p50_latency) : '-'}
+                            {stats?.stats?.p50_latency ? formatLatency(stats.stats.p50_latency) :
+                             stats?.p50_latency ? formatLatency(stats.p50_latency) : '-'}
                           </span>
                         </td>
                         <td className="px-4 py-3">
                           <span className="text-sm text-gray-900">
-                            {stats?.stats?.p50_throughput ? `${stats.stats.p50_throughput.toFixed(1)} tok/s` : '-'}
+                            {stats?.stats?.p50_throughput ? `${stats.stats.p50_throughput.toFixed(1)} tok/s` :
+                             stats?.p50_throughput ? `${stats.p50_throughput.toFixed(1)} tok/s` : '-'}
                           </span>
                         </td>
                         <td className="px-4 py-3">
