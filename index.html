@@ -1404,11 +1404,11 @@ const ScatterPlot = ({ models, detailedStats, xAxis, yAxis, onXAxisChange, onYAx
               <div className="pt-2 mt-2 border-t border-gray-700 space-y-1">
                 <div className="grid grid-cols-2 gap-x-3">
                   <span className="text-gray-400">Input Price:</span>
-                  <span className="text-green-400">${parseFloat(hoveredModel.pricing.prompt).toFixed(6)}</span>
+                  <span className="text-green-400">{formatPrice(hoveredModel.pricing.prompt)}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-x-3">
                   <span className="text-gray-400">Output Price:</span>
-                  <span className="text-green-400">${parseFloat(hoveredModel.pricing.completion).toFixed(6)}</span>
+                  <span className="text-green-400">{formatPrice(hoveredModel.pricing.completion)}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-x-3">
                   <span className="text-gray-400">Context:</span>
