@@ -1008,6 +1008,7 @@ const ModelsDashboard = () => {
 const ScatterPlot = ({ models, detailedStats, xAxis, yAxis, onXAxisChange, onYAxisChange }) => {
   const [hoveredModel, setHoveredModel] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+  const [showLabels, setShowLabels] = useState(true);
 
   const getAxisValue = (model, axis) => {
     const stats = detailedStats[model.id];
@@ -1065,9 +1066,9 @@ const ScatterPlot = ({ models, detailedStats, xAxis, yAxis, onXAxisChange, onYAx
   const yMin = Math.min(...yValues);
   const yMax = Math.max(...yValues);
 
-  const padding = 60;
-  const width = 1000;
-  const height = 600;
+  const padding = 80;
+  const width = 1400;
+  const height = 900;
   const plotWidth = width - 2 * padding;
   const plotHeight = height - 2 * padding;
 
@@ -1091,6 +1092,13 @@ const ScatterPlot = ({ models, detailedStats, xAxis, yAxis, onXAxisChange, onYAx
     { value: 'context_length', label: 'Context Length' },
     { value: 'request_count', label: 'Request Count' }
   ];
+
+  // Helper to get short model name
+  const getShortName = (name) => {
+    // Extract provider and main model name
+    const parts = name.split(':')[0].split('/');
+    return parts[parts.length - 1].split('-').slice(0, 3).join('-');
+  };
 
   return (
     <div className="bg-white rounded-lg shadow-sm p-6">
@@ -1118,6 +1126,17 @@ const ScatterPlot = ({ models, detailedStats, xAxis, yAxis, onXAxisChange, onYAx
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
+        </div>
+        <div className="flex items-end">
+          <label className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg cursor-pointer hover:bg-gray-200">
+            <input
+              type="checkbox"
+              checked={showLabels}
+              onChange={(e) => setShowLabels(e.target.checked)}
+              className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+            />
+            <span className="text-sm text-gray-700">Show Labels</span>
+          </label>
         </div>
       </div>
 
@@ -1160,25 +1179,39 @@ const ScatterPlot = ({ models, detailedStats, xAxis, yAxis, onXAxisChange, onYAx
           })}
 
           {/* Data points */}
-          {plotData.map(({ model, x, y }) => (
-            <g key={model.id}>
-              <circle
-                cx={scaleX(x)}
-                cy={scaleY(y)}
-                r="6"
-                fill="#3b82f6"
-                stroke="#1e40af"
-                strokeWidth="2"
-                className="cursor-pointer hover:fill-blue-700 transition-colors"
-                onMouseEnter={(e) => {
-                  setHoveredModel(model);
-                  const rect = e.target.getBoundingClientRect();
-                  setTooltipPos({ x: rect.left + window.scrollX, y: rect.top + window.scrollY - 10 });
-                }}
-                onMouseLeave={() => setHoveredModel(null)}
-              />
-            </g>
-          ))}
+          {plotData.map(({ model, x, y }) => {
+            const cx = scaleX(x);
+            const cy = scaleY(y);
+            return (
+              <g key={model.id}>
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  r="6"
+                  fill="#3b82f6"
+                  stroke="#1e40af"
+                  strokeWidth="2"
+                  className="cursor-pointer hover:fill-blue-700 transition-colors"
+                  onMouseEnter={(e) => {
+                    setHoveredModel(model);
+                    const rect = e.target.getBoundingClientRect();
+                    setTooltipPos({ x: rect.left + window.scrollX, y: rect.top + window.scrollY - 10 });
+                  }}
+                  onMouseLeave={() => setHoveredModel(null)}
+                />
+                {showLabels && (
+                  <text
+                    x={cx + 10}
+                    y={cy + 4}
+                    className="text-xs fill-gray-700 pointer-events-none"
+                    style={{ fontSize: '11px' }}
+                  >
+                    {getShortName(model.name)}
+                  </text>
+                )}
+              </g>
+            );
+          })}
         </svg>
 
         {/* Tooltip */}
