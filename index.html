@@ -1345,8 +1345,8 @@ const ScatterPlot = ({ models, detailedStats, xAxis, yAxis, onXAxisChange, onYAx
                   className="cursor-pointer hover:fill-blue-700 transition-colors"
                   onMouseEnter={(e) => {
                     setHoveredModel(model);
-                    const rect = e.target.getBoundingClientRect();
-                    setTooltipPos({ x: rect.left + window.scrollX, y: rect.top + window.scrollY - 10 });
+                    // Store SVG coordinates instead of screen coordinates
+                    setTooltipPos({ x: cx, y: cy });
                   }}
                   onMouseLeave={() => setHoveredModel(null)}
                 />
@@ -1365,16 +1365,14 @@ const ScatterPlot = ({ models, detailedStats, xAxis, yAxis, onXAxisChange, onYAx
           })}
         </svg>
 
-        {/* Enhanced Tooltip */}
+        {/* Enhanced Tooltip - positioned relative to SVG */}
         {hoveredModel && (
           <div
-            className="fixed bg-gray-900 text-white px-4 py-3 rounded-lg shadow-xl text-sm z-50 max-w-sm"
+            className="absolute bg-gray-900 text-white px-4 py-3 rounded-lg shadow-xl text-sm z-50 max-w-sm pointer-events-auto"
             style={{
               left: `${tooltipPos.x}px`,
               top: `${tooltipPos.y}px`,
-              transform: 'translate(-50%, -100%)',
-              marginTop: '-10px',
-              pointerEvents: 'auto'
+              transform: 'translate(-50%, calc(-100% - 15px))'
             }}
           >
             <div className="font-bold mb-2 text-base flex items-center justify-between gap-2">
