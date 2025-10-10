@@ -381,10 +381,62 @@ const ModelsDashboard = () => {
   };
 
   const hasReasoning = (model) => {
-    return model.supported_parameters?.includes('reasoning') || 
+    return model.supported_parameters?.includes('reasoning') ||
            model.supported_parameters?.includes('include_reasoning') ||
            model.description?.toLowerCase().includes('reasoning');
   };
+
+  // Calculate available ranges based on filters (excluding context/price filters to avoid circular dependency)
+  const availableRanges = useMemo(() => {
+    const preFiltered = models.filter(m => {
+      const matchesSearch = search === '' ||
+        m.name.toLowerCase().includes(search.toLowerCase()) ||
+        m.id.toLowerCase().includes(search.toLowerCase());
+
+      const matchesModality = filterModality === 'all' ||
+        (filterModality === 'text' && m.architecture.modality.includes('text->text')) ||
+        (filterModality === 'vision' && m.architecture.modality.includes('image'));
+
+      const matchesReasoning = filterReasoning === 'all' ||
+        (filterReasoning === 'yes' && hasReasoning(m)) ||
+        (filterReasoning === 'no' && !hasReasoning(m));
+
+      const promptPrice = parseFloat(m.pricing.prompt);
+      const completionPrice = parseFloat(m.pricing.completion);
+      const isFree = promptPrice === 0 && completionPrice === 0;
+      const matchesFree = filterFree === 'all' ||
+        (filterFree === 'yes' && isFree) ||
+        (filterFree === 'no' && !isFree);
+
+      const hasAnyFeatureFilter = Object.values(filterFeatures).some(v => v);
+      const matchesFeatures = !hasAnyFeatureFilter || (
+        (!filterFeatures.tools || m.supported_parameters?.includes('tools')) &&
+        (!filterFeatures.json || m.supported_parameters?.includes('structured_outputs')) &&
+        (!filterFeatures.response_format || m.supported_parameters?.includes('response_format')) &&
+        (!filterFeatures.tool_choice || m.supported_parameters?.includes('tool_choice'))
+      );
+
+      return matchesSearch && matchesModality && matchesReasoning && matchesFree && matchesFeatures;
+    });
+
+    if (preFiltered.length === 0) {
+      return {
+        maxContext: 2000000,
+        maxPromptPrice: 0.01,
+        maxCompletionPrice: 0.01
+      };
+    }
+
+    const contexts = preFiltered.map(m => m.context_length || 0).filter(c => c > 0);
+    const promptPrices = preFiltered.map(m => parseFloat(m.pricing.prompt));
+    const completionPrices = preFiltered.map(m => parseFloat(m.pricing.completion));
+
+    return {
+      maxContext: Math.max(...contexts, 1000),
+      maxPromptPrice: Math.max(...promptPrices, 0.000001),
+      maxCompletionPrice: Math.max(...completionPrices, 0.000001)
+    };
+  }, [models, search, filterModality, filterReasoning, filterFree, filterFeatures]);
 
   const filteredAndSorted = useMemo(() => {
     let filtered = models.filter(m => {
@@ -669,12 +721,16 @@ const ModelsDashboard = () => {
               <input
                 type="range"
                 min="0"
-                max="2000000"
+                max={availableRanges.maxContext}
                 step="10000"
-                value={minContext}
+                value={Math.min(minContext, availableRanges.maxContext)}
                 onChange={(e) => setMinContext(parseInt(e.target.value))}
                 className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
               />
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>0</span>
+                <span>{availableRanges.maxContext >= 1000000 ? `${(availableRanges.maxContext/1000000).toFixed(1)}M` : `${(availableRanges.maxContext/1000).toFixed(0)}K`}</span>
+              </div>
             </div>
 
             {/* Max Input Price Slider */}
@@ -685,15 +741,15 @@ const ModelsDashboard = () => {
               <input
                 type="range"
                 min="0"
-                max="0.01"
-                step="0.000001"
-                value={maxPromptPrice}
+                max={availableRanges.maxPromptPrice}
+                step={availableRanges.maxPromptPrice / 1000}
+                value={Math.min(maxPromptPrice, availableRanges.maxPromptPrice)}
                 onChange={(e) => setMaxPromptPrice(parseFloat(e.target.value))}
                 className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
               />
               <div className="flex justify-between text-xs text-gray-500 mt-1">
                 <span>$0</span>
-                <span>$0.01</span>
+                <span>${availableRanges.maxPromptPrice.toFixed(6)}</span>
               </div>
             </div>
           </div>
@@ -709,15 +765,15 @@ const ModelsDashboard = () => {
               <input
                 type="range"
                 min="0"
-                max="0.01"
-                step="0.000001"
-                value={maxCompletionPrice}
+                max={availableRanges.maxCompletionPrice}
+                step={availableRanges.maxCompletionPrice / 1000}
+                value={Math.min(maxCompletionPrice, availableRanges.maxCompletionPrice)}
                 onChange={(e) => setMaxCompletionPrice(parseFloat(e.target.value))}
                 className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
               />
               <div className="flex justify-between text-xs text-gray-500 mt-1">
                 <span>$0</span>
-                <span>$0.01</span>
+                <span>${availableRanges.maxCompletionPrice.toFixed(6)}</span>
               </div>
             </div>
           </div>
@@ -1009,6 +1065,7 @@ const ScatterPlot = ({ models, detailedStats, xAxis, yAxis, onXAxisChange, onYAx
   const [hoveredModel, setHoveredModel] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [showLabels, setShowLabels] = useState(true);
+  const [zoomLevel, setZoomLevel] = useState(1);
 
   const getAxisValue = (model, axis) => {
     const stats = detailedStats[model.id];
@@ -1067,8 +1124,10 @@ const ScatterPlot = ({ models, detailedStats, xAxis, yAxis, onXAxisChange, onYAx
   const yMax = Math.max(...yValues);
 
   const padding = 80;
-  const width = 1400;
-  const height = 900;
+  const baseWidth = 1400;
+  const baseHeight = 900;
+  const width = baseWidth * zoomLevel;
+  const height = baseHeight * zoomLevel;
   const plotWidth = width - 2 * padding;
   const plotHeight = height - 2 * padding;
 
@@ -1093,11 +1152,16 @@ const ScatterPlot = ({ models, detailedStats, xAxis, yAxis, onXAxisChange, onYAx
     { value: 'request_count', label: 'Request Count' }
   ];
 
-  // Helper to get short model name
+  // Helper to get short model name (extract model name, not provider)
   const getShortName = (name) => {
-    // Extract provider and main model name
-    const parts = name.split(':')[0].split('/');
-    return parts[parts.length - 1].split('-').slice(0, 3).join('-');
+    // Remove version suffix (e.g., ":20240229")
+    const withoutVersion = name.split(':')[0];
+    // Split by '/' and take last part (model name)
+    const parts = withoutVersion.split('/');
+    const modelName = parts[parts.length - 1];
+    // Limit to first 4 parts if hyphenated
+    const shortened = modelName.split('-').slice(0, 4).join('-');
+    return shortened.length > 25 ? shortened.substring(0, 22) + '...' : shortened;
   };
 
   return (
@@ -1127,7 +1191,7 @@ const ScatterPlot = ({ models, detailedStats, xAxis, yAxis, onXAxisChange, onYAx
             ))}
           </select>
         </div>
-        <div className="flex items-end">
+        <div className="flex items-end gap-2">
           <label className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg cursor-pointer hover:bg-gray-200">
             <input
               type="checkbox"
@@ -1137,6 +1201,23 @@ const ScatterPlot = ({ models, detailedStats, xAxis, yAxis, onXAxisChange, onYAx
             />
             <span className="text-sm text-gray-700">Show Labels</span>
           </label>
+          <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-lg">
+            <button
+              onClick={() => setZoomLevel(Math.max(0.5, zoomLevel - 0.25))}
+              className="px-2 py-1 bg-white rounded hover:bg-gray-200 text-gray-700 font-bold"
+              title="Zoom Out"
+            >
+              −
+            </button>
+            <span className="text-sm text-gray-700 min-w-[3rem] text-center">{(zoomLevel * 100).toFixed(0)}%</span>
+            <button
+              onClick={() => setZoomLevel(Math.min(3, zoomLevel + 0.25))}
+              className="px-2 py-1 bg-white rounded hover:bg-gray-200 text-gray-700 font-bold"
+              title="Zoom In"
+            >
+              +
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1214,22 +1295,44 @@ const ScatterPlot = ({ models, detailedStats, xAxis, yAxis, onXAxisChange, onYAx
           })}
         </svg>
 
-        {/* Tooltip */}
+        {/* Enhanced Tooltip */}
         {hoveredModel && (
           <div
-            className="fixed bg-gray-900 text-white px-3 py-2 rounded shadow-lg text-sm z-50 pointer-events-none"
+            className="fixed bg-gray-900 text-white px-4 py-3 rounded-lg shadow-xl text-sm z-50 pointer-events-none max-w-sm"
             style={{
               left: `${tooltipPos.x}px`,
               top: `${tooltipPos.y}px`,
-              transform: 'translate(-50%, -100%)'
+              transform: 'translate(-50%, -100%)',
+              marginTop: '-10px'
             }}
           >
-            <div className="font-semibold mb-1">{hoveredModel.name}</div>
-            <div className="text-xs space-y-1">
-              <div>{getAxisLabel(xAxis)}: {formatValue(getAxisValue(hoveredModel, xAxis), xAxis)}</div>
-              <div>{getAxisLabel(yAxis)}: {formatValue(getAxisValue(hoveredModel, yAxis), yAxis)}</div>
-              <div className="text-gray-300 pt-1 border-t border-gray-700">
-                Price: ${parseFloat(hoveredModel.pricing.prompt).toFixed(6)} / ${parseFloat(hoveredModel.pricing.completion).toFixed(6)}
+            <div className="font-bold mb-2 text-base">{hoveredModel.name}</div>
+            <div className="text-xs space-y-1.5">
+              <div className="grid grid-cols-2 gap-x-3">
+                <span className="text-gray-400">ID:</span>
+                <span className="text-gray-200 font-mono text-xs">{hoveredModel.id}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-x-3">
+                <span className="text-gray-400">{getAxisLabel(xAxis)}:</span>
+                <span className="text-white font-semibold">{formatValue(getAxisValue(hoveredModel, xAxis), xAxis)}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-x-3">
+                <span className="text-gray-400">{getAxisLabel(yAxis)}:</span>
+                <span className="text-white font-semibold">{formatValue(getAxisValue(hoveredModel, yAxis), yAxis)}</span>
+              </div>
+              <div className="pt-2 mt-2 border-t border-gray-700 space-y-1">
+                <div className="grid grid-cols-2 gap-x-3">
+                  <span className="text-gray-400">Input Price:</span>
+                  <span className="text-green-400">${parseFloat(hoveredModel.pricing.prompt).toFixed(6)}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-x-3">
+                  <span className="text-gray-400">Output Price:</span>
+                  <span className="text-green-400">${parseFloat(hoveredModel.pricing.completion).toFixed(6)}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-x-3">
+                  <span className="text-gray-400">Context:</span>
+                  <span className="text-blue-400">{hoveredModel.context_length >= 1000000 ? `${(hoveredModel.context_length/1000000).toFixed(1)}M` : `${(hoveredModel.context_length/1000).toFixed(0)}K`}</span>
+                </div>
               </div>
             </div>
           </div>
