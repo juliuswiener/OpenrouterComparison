@@ -103,8 +103,8 @@ const ModelsDashboard = () => {
     tool_choice: false
   });
   const [minContext, setMinContext] = useState(0);
-  const [maxPromptPrice, setMaxPromptPrice] = useState(0.01);
-  const [maxCompletionPrice, setMaxCompletionPrice] = useState(0.01);
+  const [maxPromptPrice, setMaxPromptPrice] = useState(10000); // per 1M tokens
+  const [maxCompletionPrice, setMaxCompletionPrice] = useState(10000); // per 1M tokens
   const [expandedRow, setExpandedRow] = useState(null);
   const [hasAttemptedAutoLoad, setHasAttemptedAutoLoad] = useState(false);
   const [activeTab, setActiveTab] = useState('table');
@@ -398,8 +398,8 @@ const ModelsDashboard = () => {
     if (models.length === 0) {
       return {
         maxContext: 2000000,
-        maxPromptPrice: 0.01,
-        maxCompletionPrice: 0.01
+        maxPromptPrice: 10000, // per 1M tokens
+        maxCompletionPrice: 10000 // per 1M tokens
       };
     }
 
@@ -438,13 +438,14 @@ const ModelsDashboard = () => {
     const contexts = preFiltered.map(m => m.context_length || 0).filter(c => c > 0);
 
     // For prices, use ALL models to allow full range selection
-    const allPromptPrices = models.map(m => parseFloat(m.pricing.prompt));
-    const allCompletionPrices = models.map(m => parseFloat(m.pricing.completion));
+    // Convert to per 1M tokens (multiply by 1,000,000)
+    const allPromptPrices = models.map(m => parseFloat(m.pricing.prompt) * 1000000);
+    const allCompletionPrices = models.map(m => parseFloat(m.pricing.completion) * 1000000);
 
     return {
       maxContext: contexts.length > 0 ? Math.max(...contexts) : 2000000,
-      maxPromptPrice: Math.max(...allPromptPrices, 0.000001),
-      maxCompletionPrice: Math.max(...allCompletionPrices, 0.000001)
+      maxPromptPrice: Math.max(...allPromptPrices, 0.001),
+      maxCompletionPrice: Math.max(...allCompletionPrices, 0.001)
     };
   }, [models, search, filterModality, filterReasoning, filterFree, filterFeatures]);
 
@@ -484,8 +485,11 @@ const ModelsDashboard = () => {
       const matchesContext = contextLength >= minContext;
 
       // Price filters: BOTH prices must be within limits (unless it's free and free filter is active)
+      // Convert to per 1M tokens for comparison
+      const promptPricePer1M = promptPrice * 1000000;
+      const completionPricePer1M = completionPrice * 1000000;
       const matchesPrice = (filterFree === 'yes' && isFree) ||
-        (promptPrice <= maxPromptPrice && completionPrice <= maxCompletionPrice);
+        (promptPricePer1M <= maxPromptPrice && completionPricePer1M <= maxCompletionPrice);
 
       return matchesSearch && matchesModality && matchesReasoning && matchesFree && matchesFeatures && matchesContext && matchesPrice;
     });
@@ -756,20 +760,20 @@ const ModelsDashboard = () => {
             {/* Max Input Price Slider */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Max Input Price: ${maxPromptPrice.toFixed(6)}
+                Max Input Price: ${maxPromptPrice.toFixed(2)}/1M tokens
               </label>
               <input
                 type="range"
                 min="0"
                 max={availableRanges.maxPromptPrice}
-                step={availableRanges.maxPromptPrice / 1000}
+                step={Math.max(0.01, availableRanges.maxPromptPrice / 1000)}
                 value={Math.min(maxPromptPrice, availableRanges.maxPromptPrice)}
                 onChange={(e) => setMaxPromptPrice(parseFloat(e.target.value))}
                 className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
               />
               <div className="flex justify-between text-xs text-gray-500 mt-1">
                 <span>$0</span>
-                <span>${availableRanges.maxPromptPrice.toFixed(6)}</span>
+                <span>${availableRanges.maxPromptPrice.toFixed(2)}</span>
               </div>
             </div>
           </div>
@@ -780,20 +784,20 @@ const ModelsDashboard = () => {
             {/* Max Output Price Slider */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Max Output Price: ${maxCompletionPrice.toFixed(6)}
+                Max Output Price: ${maxCompletionPrice.toFixed(2)}/1M tokens
               </label>
               <input
                 type="range"
                 min="0"
                 max={availableRanges.maxCompletionPrice}
-                step={availableRanges.maxCompletionPrice / 1000}
+                step={Math.max(0.01, availableRanges.maxCompletionPrice / 1000)}
                 value={Math.min(maxCompletionPrice, availableRanges.maxCompletionPrice)}
                 onChange={(e) => setMaxCompletionPrice(parseFloat(e.target.value))}
                 className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
               />
               <div className="flex justify-between text-xs text-gray-500 mt-1">
                 <span>$0</span>
-                <span>${availableRanges.maxCompletionPrice.toFixed(6)}</span>
+                <span>${availableRanges.maxCompletionPrice.toFixed(2)}</span>
               </div>
             </div>
           </div>
