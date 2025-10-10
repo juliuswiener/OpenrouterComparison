@@ -77,6 +77,11 @@ const RefreshCw = ({ className = "w-4 h-4" }) => (
     <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
   </svg>
 );
+const Copy = ({ className = "w-4 h-4" }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+  </svg>
+);
 
 const ModelsDashboard = () => {
   const [models, setModels] = useState([]);
@@ -542,6 +547,16 @@ const ModelsDashboard = () => {
     setExpandedRow(expandedRow === modelId ? null : modelId);
   };
 
+  const copyModelId = (modelId, event) => {
+    event.stopPropagation(); // Prevent row expansion when clicking copy
+    navigator.clipboard.writeText(modelId).then(() => {
+      // Could add a toast notification here
+      console.log('Copied to clipboard:', modelId);
+    }).catch(err => {
+      console.error('Failed to copy:', err);
+    });
+  };
+
   const statsLoadedCount = Object.keys(detailedStats).length;
   const statsLoadedPercent = models.length > 0 ? Math.round((statsLoadedCount / models.length) * 100) : 0;
 
@@ -894,9 +909,18 @@ const ModelsDashboard = () => {
                           )}
                         </td>
                         <td className="px-4 py-3">
-                          <div className="flex flex-col">
-                            <span className="text-sm font-medium text-gray-900">{model.name}</span>
-                            <span className="text-xs text-gray-500">{model.id}</span>
+                          <div className="flex items-center gap-2">
+                            <div className="flex flex-col flex-1">
+                              <span className="text-sm font-medium text-gray-900">{model.name}</span>
+                              <span className="text-xs text-gray-500">{model.id}</span>
+                            </div>
+                            <button
+                              onClick={(e) => copyModelId(model.id, e)}
+                              className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+                              title="Copy model ID"
+                            >
+                              <Copy className="w-4 h-4 text-gray-500 hover:text-gray-700" />
+                            </button>
                           </div>
                         </td>
                         <td className="px-4 py-3">
@@ -1298,15 +1322,28 @@ const ScatterPlot = ({ models, detailedStats, xAxis, yAxis, onXAxisChange, onYAx
         {/* Enhanced Tooltip */}
         {hoveredModel && (
           <div
-            className="fixed bg-gray-900 text-white px-4 py-3 rounded-lg shadow-xl text-sm z-50 pointer-events-none max-w-sm"
+            className="fixed bg-gray-900 text-white px-4 py-3 rounded-lg shadow-xl text-sm z-50 max-w-sm"
             style={{
               left: `${tooltipPos.x}px`,
               top: `${tooltipPos.y}px`,
               transform: 'translate(-50%, -100%)',
-              marginTop: '-10px'
+              marginTop: '-10px',
+              pointerEvents: 'auto'
             }}
           >
-            <div className="font-bold mb-2 text-base">{hoveredModel.name}</div>
+            <div className="font-bold mb-2 text-base flex items-center justify-between gap-2">
+              <span>{hoveredModel.name}</span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigator.clipboard.writeText(hoveredModel.id);
+                }}
+                className="p-1 hover:bg-gray-700 rounded transition-colors flex-shrink-0"
+                title="Copy model ID"
+              >
+                <Copy className="w-4 h-4 text-gray-300 hover:text-white" />
+              </button>
+            </div>
             <div className="text-xs space-y-1.5">
               <div className="grid grid-cols-2 gap-x-3">
                 <span className="text-gray-400">ID:</span>
