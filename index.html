@@ -103,8 +103,9 @@ const ModelsDashboard = () => {
     tool_choice: false
   });
   const [minContext, setMinContext] = useState(0);
-  const [maxPromptPrice, setMaxPromptPrice] = useState(10000); // per 1M tokens
-  const [maxCompletionPrice, setMaxCompletionPrice] = useState(10000); // per 1M tokens
+  const [maxPromptPrice, setMaxPromptPrice] = useState(5); // per 1M tokens - default to common range
+  const [maxCompletionPrice, setMaxCompletionPrice] = useState(10); // per 1M tokens - default to common range
+  const [showFullPriceRange, setShowFullPriceRange] = useState(false); // toggle for full range vs common range
   const [expandedRow, setExpandedRow] = useState(null);
   const [hasAttemptedAutoLoad, setHasAttemptedAutoLoad] = useState(false);
   const [activeTab, setActiveTab] = useState('table');
@@ -442,12 +443,26 @@ const ModelsDashboard = () => {
     const allPromptPrices = models.map(m => parseFloat(m.pricing.prompt) * 1000000);
     const allCompletionPrices = models.map(m => parseFloat(m.pricing.completion) * 1000000);
 
+    const fullMaxPromptPrice = Math.max(...allPromptPrices, 0.001);
+    const fullMaxCompletionPrice = Math.max(...allCompletionPrices, 0.001);
+
+    // Common range: focus on the majority of models (95th percentile)
+    const sortedPrompt = [...allPromptPrices].sort((a, b) => a - b);
+    const sortedCompletion = [...allCompletionPrices].sort((a, b) => a - b);
+    const p95Index = Math.floor(sortedPrompt.length * 0.95);
+    const commonMaxPromptPrice = sortedPrompt[p95Index] || 5;
+    const commonMaxCompletionPrice = sortedCompletion[p95Index] || 10;
+
     return {
       maxContext: contexts.length > 0 ? Math.max(...contexts) : 2000000,
-      maxPromptPrice: Math.max(...allPromptPrices, 0.001),
-      maxCompletionPrice: Math.max(...allCompletionPrices, 0.001)
+      maxPromptPrice: showFullPriceRange ? fullMaxPromptPrice : commonMaxPromptPrice,
+      maxCompletionPrice: showFullPriceRange ? fullMaxCompletionPrice : commonMaxCompletionPrice,
+      fullMaxPromptPrice,
+      fullMaxCompletionPrice,
+      commonMaxPromptPrice,
+      commonMaxCompletionPrice
     };
-  }, [models, search, filterModality, filterReasoning, filterFree, filterFeatures]);
+  }, [models, search, filterModality, filterReasoning, filterFree, filterFeatures, showFullPriceRange]);
 
   const filteredAndSorted = useMemo(() => {
     let filtered = models.filter(m => {
@@ -759,9 +774,20 @@ const ModelsDashboard = () => {
 
             {/* Max Input Price Slider */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Max Input Price: ${maxPromptPrice.toFixed(2)}/1M tokens
               </label>
+              <div className="flex items-center gap-2 mb-2">
+                <label className="flex items-center text-xs text-gray-600 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showFullPriceRange}
+                    onChange={(e) => setShowFullPriceRange(e.target.checked)}
+                    className="w-3 h-3 text-blue-600 rounded mr-1"
+                  />
+                  Show full range (${availableRanges.fullMaxPromptPrice?.toFixed(0)})
+                </label>
+              </div>
               <input
                 type="range"
                 min="0"
@@ -783,9 +809,20 @@ const ModelsDashboard = () => {
             <div></div>
             {/* Max Output Price Slider */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Max Output Price: ${maxCompletionPrice.toFixed(2)}/1M tokens
               </label>
+              <div className="flex items-center gap-2 mb-2">
+                <label className="flex items-center text-xs text-gray-600 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showFullPriceRange}
+                    onChange={(e) => setShowFullPriceRange(e.target.checked)}
+                    className="w-3 h-3 text-blue-600 rounded mr-1"
+                  />
+                  Show full range (${availableRanges.fullMaxCompletionPrice?.toFixed(0)})
+                </label>
+              </div>
               <input
                 type="range"
                 min="0"
