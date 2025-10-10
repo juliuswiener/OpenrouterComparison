@@ -1120,6 +1120,7 @@ const ModelsDashboard = () => {
             yAxis={plotYAxis}
             onXAxisChange={setPlotXAxis}
             onYAxisChange={setPlotYAxis}
+            formatPrice={formatPrice}
           />
         )}
 
@@ -1131,7 +1132,7 @@ const ModelsDashboard = () => {
   );
 };
 
-const ScatterPlot = ({ models, detailedStats, xAxis, yAxis, onXAxisChange, onYAxisChange }) => {
+const ScatterPlot = ({ models, detailedStats, xAxis, yAxis, onXAxisChange, onYAxisChange, formatPrice }) => {
   const [hoveredModel, setHoveredModel] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [showLabels, setShowLabels] = useState(true);
