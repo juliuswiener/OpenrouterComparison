@@ -391,8 +391,19 @@ const ModelsDashboard = () => {
            model.description?.toLowerCase().includes('reasoning');
   };
 
-  // Calculate available ranges based on filters (excluding context/price filters to avoid circular dependency)
+  // Calculate available ranges
+  // Context: based on filtered models (excluding context/price to avoid circular dependency)
+  // Prices: based on ALL models (so you can always set max to see all price ranges)
   const availableRanges = useMemo(() => {
+    if (models.length === 0) {
+      return {
+        maxContext: 2000000,
+        maxPromptPrice: 0.01,
+        maxCompletionPrice: 0.01
+      };
+    }
+
+    // For context, use pre-filtered models (excluding context/price filters)
     const preFiltered = models.filter(m => {
       const matchesSearch = search === '' ||
         m.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -424,22 +435,16 @@ const ModelsDashboard = () => {
       return matchesSearch && matchesModality && matchesReasoning && matchesFree && matchesFeatures;
     });
 
-    if (preFiltered.length === 0) {
-      return {
-        maxContext: 2000000,
-        maxPromptPrice: 0.01,
-        maxCompletionPrice: 0.01
-      };
-    }
-
     const contexts = preFiltered.map(m => m.context_length || 0).filter(c => c > 0);
-    const promptPrices = preFiltered.map(m => parseFloat(m.pricing.prompt));
-    const completionPrices = preFiltered.map(m => parseFloat(m.pricing.completion));
+
+    // For prices, use ALL models to allow full range selection
+    const allPromptPrices = models.map(m => parseFloat(m.pricing.prompt));
+    const allCompletionPrices = models.map(m => parseFloat(m.pricing.completion));
 
     return {
-      maxContext: Math.max(...contexts, 1000),
-      maxPromptPrice: Math.max(...promptPrices, 0.000001),
-      maxCompletionPrice: Math.max(...completionPrices, 0.000001)
+      maxContext: contexts.length > 0 ? Math.max(...contexts) : 2000000,
+      maxPromptPrice: Math.max(...allPromptPrices, 0.000001),
+      maxCompletionPrice: Math.max(...allCompletionPrices, 0.000001)
     };
   }, [models, search, filterModality, filterReasoning, filterFree, filterFeatures]);
 
