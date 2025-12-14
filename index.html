@@ -72,6 +72,16 @@ const Save = ({ className = "w-3 h-3" }) => (
     <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
   </svg>
 );
+const Star = ({ className = "w-4 h-4" }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <polygon points="12 2 15 8.5 22 9.3 17 14 18.5 21 12 17.8 5.5 21 7 14 2 9.3 9 8.5 12 2"/>
+  </svg>
+);
+const StarFilled = ({ className = "w-4 h-4" }) => (
+  <svg className={className} viewBox="0 0 24 24">
+    <path d="M12 2l3 6.5 7 .8-5 4.7L18.5 21 12 17.8 5.5 21 7 14 2 9.3l7-.8L12 2z" fill="currentColor" />
+  </svg>
+);
 const RefreshCw = ({ className = "w-4 h-4" }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
@@ -82,6 +92,199 @@ const Copy = ({ className = "w-4 h-4" }) => (
     <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
   </svg>
 );
+const Info = ({ className = "w-4 h-4" }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+  </svg>
+);
+
+// Minimal Markdown link renderer: turns [text](https://...) and <https://...> into clickable anchors
+const renderMarkdownLinks = (text) => {
+  if (!text || typeof text !== 'string') return text;
+  const nodes = [];
+  const regex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|<((?:https?:\/\/)[^>]+)>|(https?:\/\/[^\s)]+)(?![^<]*>)/g;
+  let lastIndex = 0;
+  let match;
+  let key = 0;
+  while ((match = regex.exec(text)) !== null) {
+    const [full, label, url1, url2, url3] = match;
+    const url = url1 || url2 || url3;
+    const linkText = label || url;
+    // text before the match
+    if (match.index > lastIndex) {
+      nodes.push(text.slice(lastIndex, match.index));
+    }
+    nodes.push(
+      <a key={`mdlink-${key++}`} href={url} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
+        {linkText}
+      </a>
+    );
+    lastIndex = regex.lastIndex;
+  }
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex));
+  }
+  return nodes;
+};
+
+// Benchmark descriptions for tooltips
+const BENCHMARK_DESCRIPTIONS = {
+  // General intelligence
+  'Intelligence Index': 'Overall intelligence score combining multiple reasoning, knowledge, and problem-solving benchmarks',
+  'Estimated Intelligence Index': 'Estimated intelligence score provided when measured Intelligence Index is unavailable',
+  'Intelligence Index per 1M Output Tokens': 'Intelligence Index divided by output token price per 1M; higher means more intelligence per dollar',
+  'Intelligence Index Is Estimated': 'True if Intelligence Index is inferred from an estimate rather than measured directly',
+  // Core benchmarks
+  'GPQA': 'Graduate-level Google-Proof Q&A reasoning benchmark',
+  'HLE': 'Hellaswag-like evaluation of commonsense reasoning and inference (HLE)',
+  'HumanEval': 'Code generation ability measured by Python function unit tests',
+  'Math 500': 'Math 500 benchmark measuring mathematical problem solving',
+  'MMLU Pro': 'Massive Multitask Language Understanding Pro across diverse academic subjects',
+  'MMMU Pro': 'Multimodal Multitask Understanding Pro benchmark',
+  'IFBench': 'Instruction Following Benchmark testing adherence and accuracy',
+  'SciCode': 'Scientific code writing and computational science problems',
+  'LiveCodeBench': 'Coding on real-world, post-cutoff problems',
+  'Math Index': 'Composite of mathematical reasoning performance',
+  'Coding Index': 'Composite of coding performance across tasks and languages',
+  'Agentic Index': 'Ability to plan, reason, and execute multi-step tasks autonomously',
+  // AIME / Olympiad
+  'AIME': 'American Invitational Mathematics Examination style reasoning (normalized)',
+  'AIME 25': 'AIME‑25 variant, typically harder subset of AIME-style questions',
+  'Lab-Claimed AIME': 'Vendor-reported AIME results (unverified lab claims)',
+  'Lab-Claimed Math 500': 'Vendor-reported Math 500 results (unverified lab claims)',
+  // Reasoning / LCR
+  'LCR': 'Long Context Reasoning metric',
+  'TAU-2': 'Reasoning correlation metric tau-2',
+  // Specialized leaderboards
+  'TerminalBench Hard': 'Hard split of terminal/agentic reasoning tasks',
+  'Multilingual AA': 'Aggregate multilingual accuracy score from AA',
+  // Chart axis labels (score variants)
+  'GPQA Score': 'Graduate-level Google-Proof Q&A reasoning benchmark',
+  'HumanEval Score': 'Code generation ability measured by Python function unit tests',
+  'MMLU Pro Score': 'Massive Multitask Language Understanding Pro',
+  'LiveCodeBench Score': 'Coding on real-world, post-cutoff problems',
+  'SciCode Score': 'Scientific code writing and computational science problems',
+  'HLE Score': 'Hellaswag-like evaluation of commonsense reasoning and inference (HLE)',
+  'Math 500 Score': 'Math 500 benchmark measuring mathematical problem solving',
+  'MMMU Pro Score': 'Multimodal Multitask Understanding Pro benchmark',
+  'IFBench Score': 'Instruction Following Benchmark testing adherence and accuracy',
+  'AIME Score': 'American Invitational Mathematics Examination style reasoning (normalized)',
+  'AIME 25 Score': 'AIME‑25 variant, typically harder subset of AIME-style questions'
+};
+
+// Initial cross-reference mapping from Set 1 (aliases) to Set 2 (OpenRouter vendor/id)
+// These seed values come from the table you provided. Users can override them in the Mapping tab.
+const INITIAL_AA_MAPPING = [
+  { alias: 'Apriel-v1.5-15B-Thinker', targetId: null, certainty: '-' },
+  { alias: 'Aya Expanse 32B', targetId: null, certainty: '-' },
+  { alias: 'Aya Expanse 8B', targetId: null, certainty: '-' },
+  { alias: 'Claude 4.1 Opus', targetId: 'anthropic/claude-4.1-opus', certainty: 'High' },
+  { alias: 'Claude 4.5 Haiku', targetId: 'anthropic/claude-haiku-4.5', certainty: 'High' },
+  { alias: 'Claude 4.5 Sonnet', targetId: 'anthropic/claude-4.5-sonnet', certainty: 'High' },
+  { alias: 'Codestral (Jan)', targetId: 'mistralai/codestral-2501', certainty: 'High' },
+  { alias: 'Command A', targetId: 'cohere/command-a', certainty: 'High' },
+  { alias: 'DeepHermes 3 - Llama-3.1 8B', targetId: 'nousresearch/deephermes-3-llama-3-8b-preview', certainty: 'High' },
+  { alias: 'DeepHermes 3 - Mistral 24B', targetId: 'nousresearch/deephermes-3-mistral-24b-preview', certainty: 'High' },
+  { alias: 'DeepSeek R1 0528', targetId: 'deepseek/deepseek-r1-0528', certainty: 'High' },
+  { alias: 'DeepSeek R1 0528 Qwen3 8B', targetId: 'deepseek/deepseek-r1-0528-qwen3-8b', certainty: 'High' },
+  { alias: 'DeepSeek R1 Distill Llama 70B', targetId: 'deepseek/deepseek-r1-distill-llama-70b', certainty: 'High' },
+  { alias: 'DeepSeek V3.1 Terminus', targetId: 'deepseek/deepseek-v3.1-terminus', certainty: 'High' },
+  { alias: 'DeepSeek V3.2 Exp', targetId: 'deepseek/deepseek-v3.2-exp', certainty: 'High' },
+  { alias: 'Devstral Medium', targetId: 'mistralai/devstral-medium', certainty: 'High' },
+  { alias: 'Devstral Small', targetId: 'mistralai/devstral-small', certainty: 'High' },
+  { alias: 'ERNIE 4.5 300B A47B', targetId: 'baidu/ernie-4.5-300b-a47b', certainty: 'High' },
+  { alias: 'EXAONE 4.0 32B', targetId: null, certainty: '-' },
+  { alias: 'Exaone 4.0 1.2B', targetId: null, certainty: '-' },
+  { alias: 'Gemma 3 12B', targetId: 'google/gemma-3-12b-it', certainty: 'High' },
+  { alias: 'Gemma 3 1B', targetId: null, certainty: '-' },
+  { alias: 'Gemma 3 270M', targetId: null, certainty: '-' },
+  { alias: 'Gemma 3 27B', targetId: 'google/gemma-3-27b-it', certainty: 'High' },
+  { alias: 'Gemma 3 4B', targetId: 'google/gemma-3-4b-it', certainty: 'High' },
+  { alias: 'Gemma 3n E2B', targetId: 'google/gemma-3n-e2b-it:free', certainty: 'High' },
+  { alias: 'Gemma 3n E4B', targetId: 'google/gemma-3n-e4b-it', certainty: 'High' },
+  { alias: 'Gemini 2.5 Flash (Sep)', targetId: 'google/gemini-2.5-flash-preview-09-2025', certainty: 'High' },
+  { alias: 'Gemini 2.5 Flash-Lite (Sep)', targetId: 'google/gemini-2.5-flash-lite-preview-09-2025', certainty: 'High' },
+  { alias: 'Gemini 2.5 Pro', targetId: 'google/gemini-2.5-pro', certainty: 'High' },
+  { alias: 'GLM-4.5-Air', targetId: 'z-ai/glm-4.5-air', certainty: 'High' },
+  { alias: 'GLM-4.5V', targetId: 'z-ai/glm-4.5v', certainty: 'High' },
+  { alias: 'GLM-4.6', targetId: 'z-ai/glm-4.6', certainty: 'High' },
+  { alias: 'GPT-5 (ChatGPT)', targetId: 'openai/gpt-5-chat', certainty: 'High' },
+  { alias: 'GPT-5 (high)', targetId: 'openai/gpt-5', certainty: 'High' },
+  { alias: 'GPT-5 (low)', targetId: 'openai/gpt-5', certainty: 'High' },
+  { alias: 'GPT-5 (medium)', targetId: 'openai/gpt-5', certainty: 'High' },
+  { alias: 'GPT-5 (minimal)', targetId: 'openai/gpt-5', certainty: 'High' },
+  { alias: 'GPT-5 Codex (high)', targetId: 'openai/gpt-5-codex', certainty: 'High' },
+  { alias: 'GPT-5 mini (high)', targetId: 'openai/gpt-5-mini', certainty: 'High' },
+  { alias: 'GPT-5 mini (medium)', targetId: 'openai/gpt-5-mini', certainty: 'High' },
+  { alias: 'GPT-5 mini (minimal)', targetId: 'openai/gpt-5-mini', certainty: 'High' },
+  { alias: 'GPT-5 nano (high)', targetId: 'openai/gpt-5-nano', certainty: 'High' },
+  { alias: 'GPT-5 nano (medium)', targetId: 'openai/gpt-5-nano', certainty: 'High' },
+  { alias: 'GPT-5 nano (minimal)', targetId: 'openai/gpt-5-nano', certainty: 'High' },
+  { alias: 'Granite 4.0 H Small', targetId: null, certainty: '-' },
+  { alias: 'Granite 4.0 Micro', targetId: 'ibm-granite/granite-4.0-h-micro', certainty: 'High' },
+  { alias: 'Grok 3 mini Reasoning (high)', targetId: 'x-ai/grok-3-mini', certainty: 'High' },
+  { alias: 'Grok 4', targetId: null, certainty: '-' },
+  { alias: 'Grok 4 Fast', targetId: 'x-ai/grok-4-fast', certainty: 'High' },
+  { alias: 'Grok Code Fast 1', targetId: 'x-ai/grok-code-fast-1', certainty: 'High' },
+  { alias: 'Hermes 4 405B', targetId: 'nousresearch/hermes-4-405b', certainty: 'High' },
+  { alias: 'Hermes 4 70B', targetId: 'nousresearch/hermes-4-70b', certainty: 'High' },
+  { alias: 'Jamba 1.7 Large', targetId: 'ai21/jamba-large-1.7', certainty: 'High' },
+  { alias: 'Jamba 1.7 Mini', targetId: 'ai21/jamba-mini-1.7', certainty: 'High' },
+  { alias: 'Jamba Reasoning 3B', targetId: null, certainty: '-' },
+  { alias: 'Kimi K2 0905', targetId: 'moonshotai/kimi-k2-0905', certainty: 'High' },
+  { alias: 'LFM2 1.2B', targetId: null, certainty: '-' },
+  { alias: 'LFM2 2.6B', targetId: 'liquid/lfm-2.2-6b', certainty: 'High' },
+  { alias: 'LFM2 8B A1B', targetId: 'liquid/lfm2-8b-a1b', certainty: 'High' },
+  { alias: 'Llama 3.1 405B', targetId: 'meta-llama/llama-3.1-405b', certainty: 'High' },
+  { alias: 'Llama 3.1 Nemotron 70B', targetId: 'nvidia/llama-3.1-nemotron-70b-instruct', certainty: 'High' },
+  { alias: 'Llama 3.1 Nemotron Nano 4B v1.1', targetId: null, certainty: '-' },
+  { alias: 'Llama 3.2 11B (Vision)', targetId: 'meta-llama/llama-3.2-11b-vision-instruct', certainty: 'High' },
+  { alias: 'Llama 3.2 90B (Vision)', targetId: 'meta-llama/llama-3.2-90b-vision-instruct', certainty: 'High' },
+  { alias: 'Llama 3.3 70B', targetId: 'meta-llama/llama-3.3-70b-instruct', certainty: 'High' },
+  { alias: 'Llama 3.3 Nemotron Super 49B', targetId: 'nvidia/llama-3.3-nemotron-super-49b-v1.5', certainty: 'High' },
+  { alias: 'Llama 4 Maverick', targetId: 'meta-llama/llama-4-maverick', certainty: 'High' },
+  { alias: 'Llama 4 Scout', targetId: 'meta-llama/llama-4-scout', certainty: 'High' },
+  { alias: 'Llama Nemotron Super 49B v1.5', targetId: 'nvidia/llama-3.3-nemotron-super-49b-v1.5', certainty: 'High' },
+  { alias: 'Llama Nemotron Ultra', targetId: 'nvidia/llama-3.1-nemotron-ultra-253b-v1', certainty: 'High' },
+  { alias: 'Magistral Medium 1.2', targetId: 'mistralai/magistral-medium-1.2', certainty: 'High' },
+  { alias: 'Magistral Small 1.2', targetId: 'mistralai/magistral-small-1.2', certainty: 'High' },
+  { alias: 'MiniMax M1 40k', targetId: 'minimax/minimax-m1', certainty: 'High' },
+  { alias: 'MiniMax M1 80k', targetId: 'minimax/minimax-m1', certainty: 'High' },
+  { alias: 'MiniMax-M2', targetId: 'minimax/minimax-m2:free', certainty: 'High' },
+  { alias: 'MiniMax-Text-01', targetId: 'minimax/minimax-01', certainty: 'High' },
+  { alias: 'Ministral 3B', targetId: 'mistralai/ministral-3b', certainty: 'High' },
+  { alias: 'Ministral 8B', targetId: 'mistralai/ministral-8b', certainty: 'High' },
+  { alias: 'Mistral Medium 3.1', targetId: 'mistralai/mistral-medium-3.1', certainty: 'High' },
+  { alias: 'Mistral Small 3.2', targetId: 'mistralai/mistral-small-3.2-24b-instruct', certainty: 'High' },
+  { alias: 'Nova Lite', targetId: 'amazon/nova-lite-v1', certainty: 'High' },
+  { alias: 'Nova Micro', targetId: 'amazon/nova-micro-v1', certainty: 'High' },
+  { alias: 'Nova Premier', targetId: null, certainty: '-' },
+  { alias: 'Nova Pro', targetId: 'amazon/nova-pro-v1', certainty: 'High' },
+  { alias: 'NVIDIA Nemotron Nano 9B V2', targetId: 'nvidia/nemotron-nano-9b-v2', certainty: 'High' },
+  { alias: 'Phi-4', targetId: 'microsoft/phi-4', certainty: 'High' },
+  { alias: 'Phi-4 Mini', targetId: null, certainty: '-' },
+  { alias: 'Phi-4 Multimodal', targetId: 'microsoft/phi-4-multimodal-instruct', certainty: 'High' },
+  { alias: 'Qwen3 235B A22B 2507', targetId: 'qwen/qwen3-235b-a22b-2507', certainty: 'High' },
+  { alias: 'Qwen3 235B 2507', targetId: 'qwen/qwen3-235b-a22b-2507', certainty: 'High' },
+  { alias: 'Qwen3 30B A3B 2507', targetId: 'qwen/qwen3-30b-a3b-instruct-2507', certainty: 'High' },
+  { alias: 'Qwen3 4B 2507', targetId: 'qwen/qwen3-4b:free', certainty: 'Medium' },
+  { alias: 'Qwen3 Coder 30B A3B', targetId: 'qwen/qwen3-coder-30b-a3b-instruct', certainty: 'High' },
+  { alias: 'Qwen3 Coder 480B', targetId: 'qwen/qwen3-coder', certainty: 'High' },
+  { alias: 'Qwen3 Max', targetId: 'qwen/qwen3-max', certainty: 'High' },
+  { alias: 'Qwen3 Next 80B A3B', targetId: 'qwen/qwen3-next-80b-a3b-instruct', certainty: 'High' },
+  { alias: 'Qwen3 Omni 30B A3B', targetId: null, certainty: '-' },
+  { alias: 'Qwen3 VL 30B A3B', targetId: 'qwen/qwen3-vl-30b-a3b-instruct', certainty: 'High' },
+  { alias: 'Qwen3 VL 4B', targetId: null, certainty: '-' },
+  { alias: 'Qwen3 VL 8B', targetId: 'qwen/qwen3-vl-8b-instruct', certainty: 'High' },
+  { alias: 'R1 1776', targetId: null, certainty: '-' },
+  { alias: 'Reka Flash 3', targetId: null, certainty: '-' },
+  { alias: 'Seed-OSS-36B-Instruct', targetId: null, certainty: '-' },
+  { alias: 'Solar Pro 2', targetId: null, certainty: '-' },
+  { alias: 'gpt-oss-120B (high)', targetId: 'openai/gpt-oss-120b', certainty: 'High' },
+  { alias: 'gpt-oss-20B (high)', targetId: 'openai/gpt-oss-20b', certainty: 'High' },
+  { alias: 'o3', targetId: 'openai/o3', certainty: 'High' },
+];
+
 
 const ModelsDashboard = () => {
   const [models, setModels] = useState([]);
@@ -99,8 +302,7 @@ const ModelsDashboard = () => {
   const [filterFeatures, setFilterFeatures] = useState({
     tools: false,
     json: false,
-    response_format: false,
-    tool_choice: false
+    reasoning: false
   });
   const [minContext, setMinContext] = useState(0);
   const [maxPromptPrice, setMaxPromptPrice] = useState(5); // per 1M tokens - default to common range
@@ -111,6 +313,61 @@ const ModelsDashboard = () => {
   const [activeTab, setActiveTab] = useState('table');
   const [plotXAxis, setPlotXAxis] = useState('latency');
   const [plotYAxis, setPlotYAxis] = useState('throughput');
+  // Heatmap selections
+  const [heatmapXAxis, setHeatmapXAxis] = useState('prompt_price');
+  const [heatmapYAxis, setHeatmapYAxis] = useState('latency');
+  const [heatmapColorAxis, setHeatmapColorAxis] = useState('coding_index');
+  // Artificial Analysis leaderboard
+  const [aaIndexMap, setAaIndexMap] = useState({});
+  const [aaHeaders, setAaHeaders] = useState([]);
+  const [aaRows, setAaRows] = useState([]);
+  const [aaLoading, setAaLoading] = useState(false);
+  const [aaError, setAaError] = useState(null);
+  const [visibleAaCols, setVisibleAaCols] = useState([]);
+  // Favorites
+  const FAVORITES_STORAGE_KEY = 'favorite_models_v1';
+  const [favorites, setFavorites] = useState(new Set());
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  // Benchmark filters (minimum scores)
+  const [minIntelligenceIndex, setMinIntelligenceIndex] = useState(0);
+  const [minCodingIndex, setMinCodingIndex] = useState(0);
+  const [minMathIndex, setMinMathIndex] = useState(0);
+  const [minAgenticIndex, setMinAgenticIndex] = useState(0);
+
+  const availableAaCols = useMemo(() => {
+    if (!aaHeaders || aaHeaders.length === 0) return [];
+    const excluded = ['Model', 'Intelligence Index', 'Artificial Analysis Intelligence Index', 'Features: Model', '_normalized_name'];
+    return aaHeaders.filter(h => !excluded.includes(h));
+  }, [aaHeaders]);
+  
+  // Group AA columns by category for nicer checkbox layout
+  const getAaCategory = (col) => {
+    const name = (col || '').toLowerCase();
+    if (['intelligence index', 'estimated intelligence index', 'intelligence index per 1m output tokens', 'intelligence index is estimated'].some(k => name === k)) return 'General Intelligence';
+    if (['gpqa', 'hle', 'humaneval', 'math 500', 'mmlu pro', 'mmmu pro', 'ifbench', 'scicode', 'livecodebench', 'math index', 'coding index', 'agentic index'].includes(name)) return 'Core Benchmarks';
+    if (['aime', 'aime 25', 'lab-claimed aime', 'lab-claimed math 500'].includes(name)) return 'AIME (Math Olympiad)';
+    if (['lcr', 'tau-2'].includes(name)) return 'Reasoning / LCR';
+    if (['terminalbench hard', 'multilingual aa'].includes(name)) return 'Specialized Leaderboards';
+    return 'Other';
+  };
+
+  const groupedAaCols = useMemo(() => {
+    const groups = {
+      'General Intelligence': [],
+      'Core Benchmarks': [],
+      'AIME (Math Olympiad)': [],
+      'Reasoning / LCR': [],
+      'Specialized Leaderboards': [],
+      'Other': []
+    };
+    availableAaCols.forEach(col => {
+      groups[getAaCategory(col)].push(col);
+    });
+    return groups;
+  }, [availableAaCols]);
+  // AA cross-reference mapping view
+  const MAPPING_STORAGE_KEY = 'aa_model_mapping_v1';
+  const [aaMapping, setAaMapping] = useState([]);
 
   const STORAGE_KEY = 'openrouter_detailed_stats';
   const STORAGE_TIMESTAMP_KEY = 'openrouter_stats_timestamp';
@@ -129,6 +386,80 @@ const ModelsDashboard = () => {
       }
     }
   }, []);
+
+  // Initialize AA mapping from localStorage + seed
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(MAPPING_STORAGE_KEY) || '{}');
+      const merged = INITIAL_AA_MAPPING.map(item => ({
+        ...item,
+        targetId: Object.prototype.hasOwnProperty.call(saved, item.alias) ? saved[item.alias] : item.targetId
+      }));
+      setAaMapping(merged);
+    } catch (e) {
+      setAaMapping(INITIAL_AA_MAPPING);
+    }
+  }, []);
+
+  // Persist AA mapping on change
+  useEffect(() => {
+    if (!aaMapping || aaMapping.length === 0) return;
+    const obj = {};
+    aaMapping.forEach(it => { if (it.targetId) obj[it.alias] = it.targetId; });
+    try { localStorage.setItem(MAPPING_STORAGE_KEY, JSON.stringify(obj)); } catch (e) {}
+  }, [aaMapping]);
+
+  // Load favorites from localStorage on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(FAVORITES_STORAGE_KEY);
+      if (raw) {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) setFavorites(new Set(arr));
+      }
+    } catch (e) {}
+  }, []);
+  // Persist favorites on change
+  useEffect(() => {
+    try { localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(Array.from(favorites))); } catch (e) {}
+  }, [favorites]);
+
+  const isFavorite = (id) => favorites.has(id);
+  const toggleFavorite = (id, e) => {
+    if (e && e.stopPropagation) e.stopPropagation();
+    setFavorites(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const fetchAALeaderboard = () => {
+    setAaLoading(true);
+    setAaError(null);
+    fetch('/api/aa/leaderboard', { cache: 'no-store' })
+      .then(r => r.json())
+      .then(data => {
+        if (data?.aa_index_map) {
+          setAaIndexMap(data.aa_index_map);
+          setAaHeaders(data.headers || []);
+          setAaRows(data.rows || []);
+          console.log('AA leaderboard loaded entries:', Object.keys(data.aa_index_map).length);
+        } else if (data?.error) {
+          setAaError(data.error);
+        }
+      })
+      .catch(err => setAaError(err.message))
+      .finally(() => setAaLoading(false));
+  };
+
+  // Auto-load AA leaderboard data on page mount if not already loaded
+  useEffect(() => {
+    if (aaRows.length === 0 && !aaLoading && !aaError) {
+      console.log('Auto-loading AA leaderboard data...');
+      fetchAALeaderboard();
+    }
+  }, []); // Run once on mount
 
   useEffect(() => {
     // Use proxy server if running on localhost, otherwise direct API
@@ -184,6 +515,32 @@ const ModelsDashboard = () => {
     }
   };
 
+  // Helper function to calculate average of last N data points from comparison API
+  const calculateComparisonAverage = (comparisonData, modelId, numPoints = 3) => {
+    if (!comparisonData || !comparisonData.data || comparisonData.data.length === 0) {
+      return null;
+    }
+
+    // Extract values for this model from all time points
+    const values = [];
+    for (const dataPoint of comparisonData.data) {
+      if (dataPoint.y && dataPoint.y[modelId] !== undefined) {
+        values.push(dataPoint.y[modelId]);
+      }
+    }
+
+    if (values.length === 0) {
+      return null;
+    }
+
+    // Get last N values
+    const lastNValues = values.slice(-numPoints);
+
+    // Calculate average
+    const sum = lastNValues.reduce((acc, val) => acc + val, 0);
+    return sum / lastNValues.length;
+  };
+
   const fetchDetailedStats = async (model) => {
     try {
       // Use canonical_slug if available, otherwise fall back to id
@@ -192,6 +549,17 @@ const ModelsDashboard = () => {
 
       // Use proxy server if running on localhost
       const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+      // URLs for live latency and throughput comparison data
+      const latencyUrl = isLocalhost
+        ? `/api/stats/latency-e2e-comparison?permaslug=${permaslug}`
+        : `https://openrouter.ai/api/frontend/stats/latency-e2e-comparison?permaslug=${permaslug}`;
+      const throughputUrl = isLocalhost
+        ? `/api/stats/throughput-comparison?permaslug=${permaslug}`
+        : `https://openrouter.ai/api/frontend/stats/throughput-comparison?permaslug=${permaslug}`;
+
+      let liveLatency = null;
+      let liveThroughput = null;
 
       // Try multiple variants in order: standard, free, extended
       const variants = ['standard', 'free', 'extended'];
@@ -204,15 +572,52 @@ const ModelsDashboard = () => {
         const response = await fetch(url);
         const data = await response.json();
 
+        // Fetch comparison data (only on first variant attempt to avoid redundant calls)
+        if (variant === 'standard' && liveLatency === null && liveThroughput === null) {
+          try {
+            const [latencyResponse, throughputResponse] = await Promise.all([
+              fetch(latencyUrl),
+              fetch(throughputUrl)
+            ]);
+
+            const latencyData = await latencyResponse.json();
+            const throughputData = await throughputResponse.json();
+
+            // Calculate averages of last 3 data points
+            liveLatency = calculateComparisonAverage(latencyData, model.id, 3);
+            liveThroughput = calculateComparisonAverage(throughputData, model.id, 3);
+
+            // Debug: log comparison data
+            if (!window._comparisonLogged) {
+              console.log('Live comparison data:', {
+                modelId: model.id,
+                liveLatency,
+                liveThroughput
+              });
+              window._comparisonLogged = true;
+            }
+          } catch (err) {
+            console.warn(`Failed to fetch comparison data for ${model.id}:`, err.message);
+          }
+        }
+
         // Debug: log first result to see structure
         if (data.data && data.data.length > 0 && !window._statsLogged) {
           console.log('Sample stats data structure:', JSON.stringify(data.data[0], null, 2));
           window._statsLogged = true;
         }
 
-        // If we got valid data, return it
+        // If we got valid data, return it with live comparison data
         if (data.data && data.data.length > 0) {
-          return { modelId: model.id, stats: data.data[0], variant };
+          return {
+            modelId: model.id,
+            stats: {
+              ...data.data[0],
+              live_latency: liveLatency,
+              live_throughput: liveThroughput
+            },
+            variant
+          };
         }
       }
 
@@ -295,6 +700,90 @@ const ModelsDashboard = () => {
     }
   };
 
+  // AA mapping helpers
+  const normalizeNameForAA = (str) => {
+    if (!str) return '';
+    let s = str.replace(/\(.*?\)/g, '');
+    s = s.toLowerCase().replace(/\u00a0/g, ' ');
+    s = s.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    return s;
+  };
+
+  const getAaIndexForModel = (model) => {
+    if (!aaIndexMap || Object.keys(aaIndexMap).length === 0) return null;
+    const nameCand = normalizeNameForAA(model.name);
+    const idFull = normalizeNameForAA(model.id);
+    const idLast = normalizeNameForAA(model.id.split('/').pop());
+    const candidates = [nameCand, idLast, idFull].filter(Boolean);
+    for (const c of candidates) {
+      if (aaIndexMap[c] !== undefined) return aaIndexMap[c];
+    }
+    for (const key in aaIndexMap) {
+      if (!key) continue;
+      if (candidates.some(c => c && (key.includes(c) || c.includes(key)))) {
+        return aaIndexMap[key];
+      }
+    }
+    return null;
+  };
+
+const modelToAaRowMap = useMemo(() => {
+  if (!aaRows || aaRows.length === 0) return new Map();
+
+  const map = new Map();
+  const aaRowMap = new Map(aaRows.map(row => [row._normalized_name, row]));
+
+  // First, use manual mappings to associate AA rows with OpenRouter models
+  for (const entry of aaMapping) {
+    if (entry.targetId) {
+      const aliasNorm = normalizeNameForAA(entry.alias);
+      if (aaRowMap.has(aliasNorm)) {
+        const aaRow = aaRowMap.get(aliasNorm);
+        map.set(entry.targetId, aaRow);
+      }
+    }
+  }
+
+  // Fallback: fuzzy matching for unmapped models
+  for (const model of models) {
+    if (!map.has(model.id)) {
+      const nameCand = normalizeNameForAA(model.name);
+      const idFull = normalizeNameForAA(model.id);
+      const idLast = normalizeNameForAA(model.id.split('/').pop());
+      const candidates = [nameCand, idLast, idFull].filter(Boolean);
+
+      let foundRow = null;
+
+      // Exact match
+      for (const c of candidates) {
+          if (aaRowMap.has(c)) {
+              foundRow = aaRowMap.get(c);
+              break;
+          }
+      }
+
+      // Fuzzy match
+      if (!foundRow) {
+          for (const [normName, row] of aaRowMap.entries()) {
+              if (candidates.some(c => c && (normName.includes(c) || c.includes(normName)))) {
+                  foundRow = row;
+                  break;
+              }
+          }
+      }
+
+      if (foundRow) {
+          map.set(model.id, foundRow);
+      }
+    }
+  }
+  return map;
+}, [models, aaRows, aaMapping]);
+
+  const getAaRowForModel = (model) => {
+      return modelToAaRowMap.get(model.id) || null;
+  }
+
   const exportToCSV = () => {
     const headers = [
       'Model Name',
@@ -302,6 +791,7 @@ const ModelsDashboard = () => {
       'Context Length',
       'Input Price',
       'Output Price',
+      'AA Index',
       'P50 Latency (ms)',
       'P50 Throughput (tok/s)',
       'Max Prompt Tokens',
@@ -319,12 +809,14 @@ const ModelsDashboard = () => {
     
     const rows = models.map(model => {
       const stats = detailedStats[model.id];
+      const aaIndex = getAaIndexForModel(model);
       return [
         `"${model.name}"`,
         model.id,
         model.context_length || '',
         model.pricing.prompt,
         model.pricing.completion,
+        aaIndex ?? '',
         stats?.stats?.p50_latency || stats?.p50_latency || '',
         stats?.stats?.p50_throughput || stats?.p50_throughput || '',
         stats?.max_prompt_tokens || model.top_provider?.context_length || '',
@@ -429,8 +921,7 @@ const ModelsDashboard = () => {
       const matchesFeatures = !hasAnyFeatureFilter || (
         (!filterFeatures.tools || m.supported_parameters?.includes('tools')) &&
         (!filterFeatures.json || m.supported_parameters?.includes('structured_outputs')) &&
-        (!filterFeatures.response_format || m.supported_parameters?.includes('response_format')) &&
-        (!filterFeatures.tool_choice || m.supported_parameters?.includes('tool_choice'))
+        (!filterFeatures.reasoning || hasReasoning(m))
       );
 
       return matchesSearch && matchesModality && matchesReasoning && matchesFree && matchesFeatures;
@@ -491,8 +982,7 @@ const ModelsDashboard = () => {
       const matchesFeatures = !hasAnyFeatureFilter || (
         (!filterFeatures.tools || m.supported_parameters?.includes('tools')) &&
         (!filterFeatures.json || m.supported_parameters?.includes('structured_outputs')) &&
-        (!filterFeatures.response_format || m.supported_parameters?.includes('response_format')) &&
-        (!filterFeatures.tool_choice || m.supported_parameters?.includes('tool_choice'))
+        (!filterFeatures.reasoning || hasReasoning(m))
       );
 
       // Context length filter: must be >= minimum
@@ -506,7 +996,20 @@ const ModelsDashboard = () => {
       const matchesPrice = (filterFree === 'yes' && isFree) ||
         (promptPricePer1M <= maxPromptPrice && completionPricePer1M <= maxCompletionPrice);
 
-      return matchesSearch && matchesModality && matchesReasoning && matchesFree && matchesFeatures && matchesContext && matchesPrice;
+      // Benchmark filters: check minimum scores
+      const aaRow = modelToAaRowMap.get(m.id);
+      const intelligenceIndex = aaRow?.['Intelligence Index'] || 0;
+      const codingIndex = aaRow?.['Coding Index'] || 0;
+      const mathIndex = aaRow?.['Math Index'] || 0;
+      const agenticIndex = aaRow?.['Agentic Index'] || 0;
+
+      const matchesBenchmarks = (minIntelligenceIndex === 0 || intelligenceIndex >= minIntelligenceIndex) &&
+                                (minCodingIndex === 0 || codingIndex >= minCodingIndex) &&
+                                (minMathIndex === 0 || mathIndex >= minMathIndex) &&
+                                (minAgenticIndex === 0 || agenticIndex >= minAgenticIndex);
+
+      const matchesFavorites = !favoritesOnly || favorites.has(m.id);
+      return matchesSearch && matchesModality && matchesReasoning && matchesFree && matchesFeatures && matchesContext && matchesPrice && matchesBenchmarks && matchesFavorites;
     });
 
     filtered.sort((a, b) => {
@@ -529,20 +1032,47 @@ const ModelsDashboard = () => {
           aVal = parseFloat(a.pricing.completion);
           bVal = parseFloat(b.pricing.completion);
           break;
+        case 'aa_index':
+          aVal = getAaIndexForModel(a) ?? -1;
+          bVal = getAaIndexForModel(b) ?? -1;
+          break;
         case 'latency':
-          aVal = detailedStats[a.id]?.stats?.p50_latency || detailedStats[a.id]?.p50_latency || 999999;
-          bVal = detailedStats[b.id]?.stats?.p50_latency || detailedStats[b.id]?.p50_latency || 999999;
+          aVal = detailedStats[a.id]?.stats?.live_latency || detailedStats[a.id]?.live_latency ||
+                 detailedStats[a.id]?.stats?.p50_latency || detailedStats[a.id]?.p50_latency || 999999;
+          bVal = detailedStats[b.id]?.stats?.live_latency || detailedStats[b.id]?.live_latency ||
+                 detailedStats[b.id]?.stats?.p50_latency || detailedStats[b.id]?.p50_latency || 999999;
           break;
         case 'throughput':
-          aVal = detailedStats[a.id]?.stats?.p50_throughput || detailedStats[a.id]?.p50_throughput || 0;
-          bVal = detailedStats[b.id]?.stats?.p50_throughput || detailedStats[b.id]?.p50_throughput || 0;
+          aVal = detailedStats[a.id]?.stats?.live_throughput || detailedStats[a.id]?.live_throughput ||
+                 detailedStats[a.id]?.stats?.p50_throughput || detailedStats[a.id]?.p50_throughput || 0;
+          bVal = detailedStats[b.id]?.stats?.live_throughput || detailedStats[b.id]?.live_throughput ||
+                 detailedStats[b.id]?.stats?.p50_throughput || detailedStats[b.id]?.p50_throughput || 0;
           break;
         case 'created':
           aVal = a.created || 0;
           bVal = b.created || 0;
           break;
         default:
-          return 0;
+          // Support sorting by dynamic AA benchmark columns
+          if (sortBy && sortBy.startsWith('aa:')) {
+            const col = sortBy.slice(3);
+            const aRow = modelToAaRowMap.get(a.id);
+            const bRow = modelToAaRowMap.get(b.id);
+            const parseNum = (v) => {
+              if (v === null || v === undefined) return -1;
+              if (typeof v === 'number') return v;
+              if (typeof v === 'string') {
+                const s = v.replace(/%/g, '').replace(/,/g, '').trim();
+                const f = parseFloat(s);
+                return isNaN(f) ? -1 : f;
+              }
+              return -1;
+            };
+            aVal = parseNum(aRow ? aRow[col] : undefined);
+            bVal = parseNum(bRow ? bRow[col] : undefined);
+          } else {
+            return 0;
+          }
       }
       
       if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
@@ -551,7 +1081,7 @@ const ModelsDashboard = () => {
     });
 
     return filtered;
-  }, [models, search, sortBy, sortDir, filterModality, filterReasoning, filterFree, filterFeatures, minContext, maxPromptPrice, maxCompletionPrice, detailedStats]);
+  }, [models, search, sortBy, sortDir, filterModality, filterReasoning, filterFree, filterFeatures, minContext, maxPromptPrice, maxCompletionPrice, detailedStats, modelToAaRowMap, minIntelligenceIndex, minCodingIndex, minMathIndex, minAgenticIndex, favoritesOnly, favorites]);
 
   const handleSort = (field) => {
     if (sortBy === field) {
@@ -623,6 +1153,26 @@ const ModelsDashboard = () => {
               }`}
             >
               Chart View
+            </button>
+            <button
+              onClick={() => setActiveTab('heatmap')}
+              className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+                activeTab === 'heatmap'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Heatmap View
+            </button>
+            <button
+              onClick={() => setActiveTab('mapping')}
+              className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+                activeTab === 'mapping'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              AA Mapping
             </button>
           </div>
 
@@ -734,20 +1284,14 @@ const ModelsDashboard = () => {
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
-                    checked={filterFeatures.response_format}
-                    onChange={(e) => setFilterFeatures({...filterFeatures, response_format: e.target.checked})}
+                    checked={filterFeatures.reasoning}
+                    onChange={(e) => setFilterFeatures({...filterFeatures, reasoning: e.target.checked})}
                     className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
                   />
-                  <span className="text-sm text-gray-700">Response Format</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={filterFeatures.tool_choice}
-                    onChange={(e) => setFilterFeatures({...filterFeatures, tool_choice: e.target.checked})}
-                    className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-gray-700">Tool Choice</span>
+                  <span className="text-sm text-gray-700 flex items-center gap-1">
+                    <Brain className="w-3 h-3" />
+                    Reasoning/Thinking
+                  </span>
                 </label>
               </div>
             </div>
@@ -810,6 +1354,21 @@ const ModelsDashboard = () => {
             {/* Max Output Price Slider */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
+                Favorites
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-700 mb-2">
+                <input
+                  type="checkbox"
+                  checked={favoritesOnly}
+                  onChange={(e) => setFavoritesOnly(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                />
+                <span className="flex items-center gap-1">
+                  <StarFilled className={`w-4 h-4 ${favoritesOnly ? 'text-yellow-500' : 'text-gray-400'}`} />
+                  Show favorites only
+                </span>
+              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Max Output Price: ${maxCompletionPrice.toFixed(2)}/1M tokens
               </label>
               <div className="flex items-center gap-2 mb-2">
@@ -838,6 +1397,115 @@ const ModelsDashboard = () => {
               </div>
             </div>
           </div>
+
+          {availableAaCols.length > 0 && (
+            <div className="lg:col-span-4 mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                AA Leaderboard Columns
+              </label>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {Object.entries(groupedAaCols).map(([groupName, cols]) => (
+                  cols.length > 0 && (
+                    <div key={groupName} className="border rounded-lg p-3">
+                      <div className="text-xs font-semibold text-gray-600 mb-2">{groupName}</div>
+                      <div className="flex flex-col gap-2">
+                        {cols.map(col => (
+                          <label key={col} className="flex items-center gap-2 relative group">
+                            <input
+                              type="checkbox"
+                              checked={visibleAaCols.includes(col)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setVisibleAaCols([...visibleAaCols, col]);
+                                } else {
+                                  setVisibleAaCols(visibleAaCols.filter(c => c !== col));
+                                }
+                              }}
+                              className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                            />
+                            <span className="text-sm text-gray-700 flex items-center gap-1">
+                              {col}
+                              {BENCHMARK_DESCRIPTIONS[col] && (
+                                <>
+                                  <Info className="w-3.5 h-3.5 text-gray-400 cursor-help" />
+                                  <span className="invisible group-hover:visible absolute left-0 top-full mt-1 w-72 bg-gray-900 text-white text-xs rounded-lg p-2 z-50 shadow-xl">
+                                    {BENCHMARK_DESCRIPTIONS[col]}
+                                  </span>
+                                </>
+                              )}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Benchmark Filters */}
+          {aaRows.length > 0 && (
+            <div className="lg:col-span-4 mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Benchmark Filters (Minimum Scores)
+              </label>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">
+                    Min Intelligence Index: {minIntelligenceIndex}
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={minIntelligenceIndex}
+                    onChange={(e) => setMinIntelligenceIndex(parseInt(e.target.value))}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">
+                    Min Coding Index: {minCodingIndex}
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={minCodingIndex}
+                    onChange={(e) => setMinCodingIndex(parseInt(e.target.value))}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">
+                    Min Math Index: {minMathIndex}
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={minMathIndex}
+                    onChange={(e) => setMinMathIndex(parseInt(e.target.value))}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">
+                    Min Agentic Index: {minAgenticIndex}
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={minAgenticIndex}
+                    onChange={(e) => setMinAgenticIndex(parseInt(e.target.value))}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
           
           <div className="flex justify-between items-center">
             <div>
@@ -924,6 +1592,12 @@ const ModelsDashboard = () => {
                   </th>
                   <th
                     className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('aa_index')}
+                  >
+                    AA Index <SortIcon field="aa_index" />
+                  </th>
+                  <th
+                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                     onClick={() => handleSort('latency')}
                   >
                     <Clock className="w-4 h-4 inline mr-1" />
@@ -936,6 +1610,21 @@ const ModelsDashboard = () => {
                     <Zap className="w-4 h-4 inline mr-1" />
                     Speed <SortIcon field="throughput" />
                   </th>
+                  {visibleAaCols.map(col => (
+                    <th
+                      key={col}
+                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider group relative cursor-pointer hover:bg-gray-100"
+                      title={BENCHMARK_DESCRIPTIONS[col] || ''}
+                      onClick={() => handleSort(`aa:${col}`)}
+                    >
+                      <span className="flex items-center gap-1">
+                        {col} <SortIcon field={`aa:${col}`} />
+                        {BENCHMARK_DESCRIPTIONS[col] && (
+                          <Info className="w-3 h-3 text-gray-400" />
+                        )}
+                      </span>
+                    </th>
+                  ))}
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Features
                   </th>
@@ -944,6 +1633,8 @@ const ModelsDashboard = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredAndSorted.map((model) => {
                   const stats = detailedStats[model.id];
+                  const aaIndex = getAaIndexForModel(model);
+                  const aaRow = getAaRowForModel(model);
                   return (
                     <React.Fragment key={model.id}>
                       <tr className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => toggleExpand(model.id)}>
@@ -960,6 +1651,17 @@ const ModelsDashboard = () => {
                               <span className="text-sm font-medium text-gray-900">{model.name}</span>
                               <span className="text-xs text-gray-500">{model.id}</span>
                             </div>
+                            <button
+                              onClick={(e) => toggleFavorite(model.id, e)}
+                              className="p-1.5 hover:bg-gray-200 rounded transition-colors"
+                              title={isFavorite(model.id) ? 'Remove from favorites' : 'Add to favorites'}
+                            >
+                              {isFavorite(model.id) ? (
+                                <StarFilled className="w-4 h-4 text-yellow-500" />
+                              ) : (
+                                <Star className="w-4 h-4 text-gray-400" />
+                              )}
+                            </button>
                             <button
                               onClick={(e) => copyModelId(model.id, e)}
                               className="p-1.5 hover:bg-gray-200 rounded transition-colors"
@@ -979,17 +1681,29 @@ const ModelsDashboard = () => {
                           <span className="text-sm text-gray-900">{formatPrice(model.pricing.completion)}</span>
                         </td>
                         <td className="px-4 py-3">
+                          <span className="text-sm text-gray-900">{aaIndex !== null && aaIndex !== undefined ? `${aaIndex}` : '-'}</span>
+                        </td>
+                        <td className="px-4 py-3">
                           <span className="text-sm text-gray-900">
-                            {stats?.stats?.p50_latency ? formatLatency(stats.stats.p50_latency) :
+                            {stats?.stats?.live_latency ? formatLatency(stats.stats.live_latency) :
+                             stats?.live_latency ? formatLatency(stats.live_latency) :
+                             stats?.stats?.p50_latency ? formatLatency(stats.stats.p50_latency) :
                              stats?.p50_latency ? formatLatency(stats.p50_latency) : '-'}
                           </span>
                         </td>
                         <td className="px-4 py-3">
                           <span className="text-sm text-gray-900">
-                            {stats?.stats?.p50_throughput ? `${stats.stats.p50_throughput.toFixed(1)} tok/s` :
+                            {stats?.stats?.live_throughput ? `${stats.stats.live_throughput.toFixed(1)} tok/s` :
+                             stats?.live_throughput ? `${stats.live_throughput.toFixed(1)} tok/s` :
+                             stats?.stats?.p50_throughput ? `${stats.stats.p50_throughput.toFixed(1)} tok/s` :
                              stats?.p50_throughput ? `${stats.p50_throughput.toFixed(1)} tok/s` : '-'}
                           </span>
                         </td>
+                        {visibleAaCols.map(col => (
+                            <td key={col} className="px-4 py-3">
+                                <span className="text-sm text-gray-900">{aaRow ? aaRow[col] : '-'}</span>
+                            </td>
+                        ))}
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap gap-1">
                             {hasReasoning(model) && (
@@ -1018,7 +1732,7 @@ const ModelsDashboard = () => {
                       </tr>
                       {expandedRow === model.id && (
                         <tr className="bg-gray-50">
-                          <td colSpan="8" className="px-4 py-4">
+                          <td colSpan="9" className="px-4 py-4">
                             <div className="space-y-4">
                               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                                 <div className="space-y-2">
@@ -1047,20 +1761,15 @@ const ModelsDashboard = () => {
                                   <h4 className="font-semibold text-gray-900 mb-2">Capabilities</h4>
                                   <div className="space-y-1">
                                     <div className="flex items-center gap-2">
-                                      {model.supported_parameters?.includes('response_format') ? (
+                                      {hasReasoning(model) ? (
                                         <CheckCircle className="w-4 h-4 text-green-600" />
                                       ) : (
                                         <XCircle className="w-4 h-4 text-gray-300" />
                                       )}
-                                      <span className="text-gray-700">Response Format</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      {model.supported_parameters?.includes('tool_choice') ? (
-                                        <CheckCircle className="w-4 h-4 text-green-600" />
-                                      ) : (
-                                        <XCircle className="w-4 h-4 text-gray-300" />
-                                      )}
-                                      <span className="text-gray-700">Tool Choice</span>
+                                      <span className="text-gray-700 flex items-center gap-1">
+                                        <Brain className="w-3 h-3" />
+                                        Reasoning/Thinking
+                                      </span>
                                     </div>
                                     <div className="flex items-center gap-2">
                                       {stats?.supports_multipart ? (
@@ -1096,7 +1805,7 @@ const ModelsDashboard = () => {
                               {model.description && (
                                 <div className="pt-3 border-t border-gray-200">
                                   <h4 className="font-semibold text-gray-900 mb-2 text-sm">Description</h4>
-                                  <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{model.description}</p>
+                                  <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{renderMarkdownLinks(model.description)}</p>
                                 </div>
                               )}
                             </div>
@@ -1121,6 +1830,33 @@ const ModelsDashboard = () => {
             onXAxisChange={setPlotXAxis}
             onYAxisChange={setPlotYAxis}
             formatPrice={formatPrice}
+            modelToAaRowMap={modelToAaRowMap}
+          />
+        )}
+
+        {activeTab === 'heatmap' && (
+          <HeatmapView
+            models={filteredAndSorted}
+            detailedStats={detailedStats}
+            xAxis={heatmapXAxis}
+            yAxis={heatmapYAxis}
+            colorAxis={heatmapColorAxis}
+            onXAxisChange={setHeatmapXAxis}
+            onYAxisChange={setHeatmapYAxis}
+            onColorAxisChange={setHeatmapColorAxis}
+            formatPrice={formatPrice}
+            modelToAaRowMap={modelToAaRowMap}
+          />
+        )}
+
+        {activeTab === 'mapping' && (
+          <MappingView
+            models={models}
+            mapping={aaMapping}
+            setMapping={setAaMapping}
+            fetchAALeaderboard={fetchAALeaderboard}
+            aaLoading={aaLoading}
+            aaError={aaError}
           />
         )}
 
@@ -1132,7 +1868,7 @@ const ModelsDashboard = () => {
   );
 };
 
-const ScatterPlot = ({ models, detailedStats, xAxis, yAxis, onXAxisChange, onYAxisChange, formatPrice }) => {
+const ScatterPlot = ({ models, detailedStats, xAxis, yAxis, onXAxisChange, onYAxisChange, formatPrice, modelToAaRowMap }) => {
   const [hoveredModel, setHoveredModel] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [showLabels, setShowLabels] = useState(true);
@@ -1140,11 +1876,15 @@ const ScatterPlot = ({ models, detailedStats, xAxis, yAxis, onXAxisChange, onYAx
 
   const getAxisValue = (model, axis) => {
     const stats = detailedStats[model.id];
+    const aaRow = modelToAaRowMap?.get(model.id);
+
     switch(axis) {
       case 'latency':
-        return stats?.stats?.p50_latency || stats?.p50_latency || null;
+        return stats?.stats?.live_latency || stats?.live_latency ||
+               stats?.stats?.p50_latency || stats?.p50_latency || null;
       case 'throughput':
-        return stats?.stats?.p50_throughput || stats?.p50_throughput || null;
+        return stats?.stats?.live_throughput || stats?.live_throughput ||
+               stats?.stats?.p50_throughput || stats?.p50_throughput || null;
       case 'prompt_price':
         return parseFloat(model.pricing.prompt);
       case 'completion_price':
@@ -1153,6 +1893,53 @@ const ScatterPlot = ({ models, detailedStats, xAxis, yAxis, onXAxisChange, onYAx
         return model.context_length || null;
       case 'request_count':
         return stats?.stats?.request_count || null;
+      // AA Benchmark metrics
+      case 'intelligence_index':
+        return aaRow?.['Intelligence Index'] || null;
+      case 'estimated_intelligence_index':
+        return aaRow?.['Estimated Intelligence Index'] || null;
+      case 'intelligence_index_per_m_output_tokens':
+        return aaRow?.['Intelligence Index per 1M Output Tokens'] || null;
+      case 'gpqa':
+        return aaRow?.['GPQA'] || null;
+      case 'hle':
+        return aaRow?.['HLE'] || null;
+      case 'humaneval':
+        return aaRow?.['HumanEval'] || null;
+      case 'math_500':
+        return aaRow?.['Math 500'] || null;
+      case 'mmlu_pro':
+        return aaRow?.['MMLU Pro'] || null;
+      case 'mmmu_pro':
+        return aaRow?.['MMMU Pro'] || null;
+      case 'ifbench':
+        return aaRow?.['IFBench'] || null;
+      case 'math_index':
+        return aaRow?.['Math Index'] || null;
+      case 'coding_index':
+        return aaRow?.['Coding Index'] || null;
+      case 'agentic_index':
+        return aaRow?.['Agentic Index'] || null;
+      case 'livecodebench':
+        return aaRow?.['LiveCodeBench'] || null;
+      case 'scicode':
+        return aaRow?.['SciCode'] || null;
+      case 'aime':
+        return aaRow?.['AIME'] || null;
+      case 'aime25':
+        return aaRow?.['AIME 25'] || null;
+      case 'lab_claimed_aime':
+        return aaRow?.['Lab-Claimed AIME'] || null;
+      case 'lab_claimed_math_500':
+        return aaRow?.['Lab-Claimed Math 500'] || null;
+      case 'lcr':
+        return aaRow?.['LCR'] || null;
+      case 'tau2':
+        return aaRow?.['TAU-2'] || null;
+      case 'terminalbench_hard':
+        return aaRow?.['TerminalBench Hard'] || null;
+      case 'multilingual_aa':
+        return aaRow?.['Multilingual AA'] || null;
       default:
         return null;
     }
@@ -1166,6 +1953,30 @@ const ScatterPlot = ({ models, detailedStats, xAxis, yAxis, onXAxisChange, onYAx
       case 'completion_price': return 'Output Price ($)';
       case 'context_length': return 'Context Length';
       case 'request_count': return 'Request Count';
+      // AA Benchmark metrics
+      case 'intelligence_index': return 'Intelligence Index';
+      case 'estimated_intelligence_index': return 'Estimated Intelligence Index';
+      case 'intelligence_index_per_m_output_tokens': return 'Intelligence Index per 1M Output Tokens';
+      case 'gpqa': return 'GPQA Score';
+      case 'hle': return 'HLE Score';
+      case 'humaneval': return 'HumanEval Score';
+      case 'math_500': return 'Math 500 Score';
+      case 'mmlu_pro': return 'MMLU Pro Score';
+      case 'mmmu_pro': return 'MMMU Pro Score';
+      case 'ifbench': return 'IFBench Score';
+      case 'math_index': return 'Math Index';
+      case 'coding_index': return 'Coding Index';
+      case 'agentic_index': return 'Agentic Index';
+      case 'livecodebench': return 'LiveCodeBench Score';
+      case 'scicode': return 'SciCode Score';
+      case 'aime': return 'AIME Score';
+      case 'aime25': return 'AIME 25 Score';
+      case 'lab_claimed_aime': return 'Lab-Claimed AIME';
+      case 'lab_claimed_math_500': return 'Lab-Claimed Math 500';
+      case 'lcr': return 'LCR';
+      case 'tau2': return 'TAU-2';
+      case 'terminalbench_hard': return 'TerminalBench Hard';
+      case 'multilingual_aa': return 'Multilingual AA';
       default: return axis;
     }
   };
@@ -1211,6 +2022,14 @@ const ScatterPlot = ({ models, detailedStats, xAxis, yAxis, onXAxisChange, onYAx
     if (axis === 'throughput') return `${val.toFixed(1)} tok/s`;
     if (axis === 'context_length') return val >= 1000000 ? `${(val/1000000).toFixed(1)}M` : `${(val/1000).toFixed(0)}K`;
     if (axis === 'request_count') return val.toLocaleString();
+  // AA Benchmark metrics - typically range from 0-100 or 0-1
+  if (axis === 'intelligence_index' || axis === 'estimated_intelligence_index' || axis === 'math_index' || axis === 'coding_index' || axis === 'agentic_index') {
+    return val.toFixed(1);
+  }
+  if (['gpqa','hle','humaneval','math_500','mmlu_pro','mmmu_pro','ifbench','livecodebench','scicode','aime','aime25','lcr','tau2','terminalbench_hard','multilingual_aa'].includes(axis)) {
+    // These are typically percentages (0-1 range)
+    return val < 2 ? `${(val * 100).toFixed(1)}%` : val.toFixed(1);
+  }
     return val.toFixed(2);
   };
 
@@ -1220,49 +2039,94 @@ const ScatterPlot = ({ models, detailedStats, xAxis, yAxis, onXAxisChange, onYAx
     { value: 'prompt_price', label: 'Input Price' },
     { value: 'completion_price', label: 'Output Price' },
     { value: 'context_length', label: 'Context Length' },
-    { value: 'request_count', label: 'Request Count' }
+    { value: 'request_count', label: 'Request Count' },
+    { value: '---', label: '--- AA Benchmarks ---', disabled: true },
+    { value: 'intelligence_index', label: 'Intelligence Index' },
+    { value: 'estimated_intelligence_index', label: 'Estimated Intelligence Index' },
+    { value: 'intelligence_index_per_m_output_tokens', label: 'Intelligence per $ (1M out)' },
+    { value: 'gpqa', label: 'GPQA' },
+    { value: 'hle', label: 'HLE' },
+    { value: 'humaneval', label: 'HumanEval' },
+    { value: 'math_500', label: 'Math 500' },
+    { value: 'mmlu_pro', label: 'MMLU Pro' },
+    { value: 'mmmu_pro', label: 'MMMU Pro' },
+    { value: 'ifbench', label: 'IFBench' },
+    { value: 'math_index', label: 'Math Index' },
+    { value: 'coding_index', label: 'Coding Index' },
+    { value: 'agentic_index', label: 'Agentic Index' },
+    { value: 'livecodebench', label: 'LiveCodeBench' },
+    { value: 'scicode', label: 'SciCode' },
+    { value: 'aime', label: 'AIME' },
+    { value: 'aime25', label: 'AIME 25' },
+    { value: 'lab_claimed_aime', label: 'Lab-Claimed AIME' },
+    { value: 'lab_claimed_math_500', label: 'Lab-Claimed Math 500' },
+    { value: 'lcr', label: 'LCR' },
+    { value: 'tau2', label: 'TAU-2' },
+    { value: 'terminalbench_hard', label: 'TerminalBench Hard' },
+    { value: 'multilingual_aa', label: 'Multilingual AA' }
   ];
 
-  // Helper to get short model name (extract model name, not provider)
-  const getShortName = (name) => {
-    // Remove version suffix (e.g., ":20240229")
-    const withoutVersion = name.split(':')[0];
-    // Split by '/' and take last part (model name)
-    const parts = withoutVersion.split('/');
-    const modelName = parts[parts.length - 1];
-    // Limit to first 4 parts if hyphenated
-    const shortened = modelName.split('-').slice(0, 4).join('-');
-    return shortened.length > 25 ? shortened.substring(0, 22) + '...' : shortened;
+  // Helper to get benchmark description for axis
+  const getBenchmarkDescription = (axis) => {
+    const axisLabel = getAxisLabel(axis);
+    return BENCHMARK_DESCRIPTIONS[axisLabel] || null;
   };
 
   return (
     <div className="bg-white rounded-lg shadow-sm p-6">
-      <div className="mb-6 flex gap-4">
-        <div className="flex-1">
-          <label className="block text-sm font-medium text-gray-700 mb-2">X-Axis</label>
-          <select
-            value={xAxis}
-            onChange={(e) => onXAxisChange(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-          >
-            {axisOptions.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
+      <div className="mb-6">
+        <div className="flex gap-4 mb-3">
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-2">X-Axis</label>
+            <select
+              value={xAxis}
+              onChange={(e) => onXAxisChange(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            >
+              {axisOptions.map(opt => (
+                <option key={opt.value} value={opt.value} disabled={opt.disabled}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Y-Axis</label>
+            <select
+              value={yAxis}
+              onChange={(e) => onYAxisChange(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            >
+              {axisOptions.map(opt => (
+                <option key={opt.value} value={opt.value} disabled={opt.disabled}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
         </div>
-        <div className="flex-1">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Y-Axis</label>
-          <select
-            value={yAxis}
-            onChange={(e) => onYAxisChange(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-          >
-            {axisOptions.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-        </div>
-        <div className="flex items-end gap-2">
+
+        {/* Display benchmark descriptions when selected */}
+        {(getBenchmarkDescription(xAxis) || getBenchmarkDescription(yAxis)) && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+            <div className="flex items-start gap-2">
+              <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+              <div className="space-y-2">
+                {getBenchmarkDescription(xAxis) && (
+                  <div>
+                    <span className="font-semibold text-blue-900">{getAxisLabel(xAxis)}:</span>
+                    <span className="text-blue-800 ml-1">{getBenchmarkDescription(xAxis)}</span>
+                  </div>
+                )}
+                {getBenchmarkDescription(yAxis) && (
+                  <div>
+                    <span className="font-semibold text-blue-900">{getAxisLabel(yAxis)}:</span>
+                    <span className="text-blue-800 ml-1">{getBenchmarkDescription(yAxis)}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Controls */}
+        <div className="flex items-end gap-2 mt-3">
           <label className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg cursor-pointer hover:bg-gray-200">
             <input
               type="checkbox"
@@ -1346,8 +2210,15 @@ const ScatterPlot = ({ models, detailedStats, xAxis, yAxis, onXAxisChange, onYAx
                   className="cursor-pointer hover:fill-blue-700 transition-colors"
                   onMouseEnter={(e) => {
                     setHoveredModel(model);
-                    // Store SVG coordinates instead of screen coordinates
-                    setTooltipPos({ x: cx, y: cy });
+                    // Get mouse position for smart tooltip positioning
+                    const svg = e.currentTarget.ownerSVGElement;
+                    const svgRect = svg.getBoundingClientRect();
+                    setTooltipPos({
+                      mouseX: e.clientX - svgRect.left,
+                      mouseY: e.clientY - svgRect.top,
+                      svgWidth: svgRect.width,
+                      svgHeight: svgRect.height
+                    });
                   }}
                   onMouseLeave={() => setHoveredModel(null)}
                 />
@@ -1356,9 +2227,9 @@ const ScatterPlot = ({ models, detailedStats, xAxis, yAxis, onXAxisChange, onYAx
                     x={cx + 10}
                     y={cy + 4}
                     className="text-xs fill-gray-700 pointer-events-none"
-                    style={{ fontSize: '11px' }}
+                    style={{ fontSize: '10px' }}
                   >
-                    {getShortName(model.name)}
+                    {model.id}
                   </text>
                 )}
               </g>
@@ -1367,15 +2238,47 @@ const ScatterPlot = ({ models, detailedStats, xAxis, yAxis, onXAxisChange, onYAx
         </svg>
 
         {/* Enhanced Tooltip - positioned relative to SVG */}
-        {hoveredModel && (
-          <div
-            className="absolute bg-gray-900 text-white px-4 py-3 rounded-lg shadow-xl text-sm z-50 max-w-sm pointer-events-auto"
-            style={{
-              left: `${tooltipPos.x}px`,
-              top: `${tooltipPos.y}px`,
-              transform: 'translate(-50%, calc(-100% - 15px))'
-            }}
-          >
+        {hoveredModel && (() => {
+          // Smart positioning: keep tooltip within bounds
+          const tooltipWidth = 320; // estimated max width
+          const tooltipHeight = 250; // estimated max height
+          const offset = 15; // distance from cursor
+
+          let left = tooltipPos.mouseX;
+          let top = tooltipPos.mouseY;
+          let translateX = '0';
+          let translateY = '-100%';
+
+          // Check horizontal bounds
+          if (left + tooltipWidth + offset > tooltipPos.svgWidth) {
+            // Not enough space on right, position to left
+            translateX = '-100%';
+            left = left - offset;
+          } else {
+            // Position to right
+            left = left + offset;
+          }
+
+          // Check vertical bounds
+          if (top - tooltipHeight - offset < 0) {
+            // Not enough space above, position below
+            translateY = '0';
+            top = top + offset;
+          } else {
+            // Position above
+            top = top - offset;
+          }
+
+          return (
+            <div
+              className="absolute bg-gray-900 text-white px-4 py-3 rounded-lg shadow-xl text-sm z-50 max-w-sm pointer-events-auto"
+              style={{
+                left: `${left}px`,
+                top: `${top}px`,
+                transform: `translate(${translateX}, ${translateY})`
+              }}
+            >
+        })()}
             <div className="font-bold mb-2 text-base flex items-center justify-between gap-2">
               <span>{hoveredModel.name}</span>
               <button
@@ -1418,11 +2321,610 @@ const ScatterPlot = ({ models, detailedStats, xAxis, yAxis, onXAxisChange, onYAx
               </div>
             </div>
           </div>
-        )}
+          );
+        })()}
       </div>
 
       <div className="mt-4 text-sm text-gray-500 text-center">
         Showing {plotData.length} models with data for both axes
+      </div>
+    </div>
+  );
+};
+
+const HeatmapView = ({ models, detailedStats, xAxis, yAxis, colorAxis, onXAxisChange, onYAxisChange, onColorAxisChange, formatPrice, modelToAaRowMap }) => {
+  const [hoveredCell, setHoveredCell] = useState(null);
+  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+  const [numBins, setNumBins] = useState(30); // Number of bins per axis
+
+  const getAxisValue = (model, axis) => {
+    const stats = detailedStats[model.id];
+    const aaRow = modelToAaRowMap?.get(model.id);
+
+    switch(axis) {
+      case 'latency':
+        return stats?.stats?.live_latency || stats?.live_latency ||
+               stats?.stats?.p50_latency || stats?.p50_latency || null;
+      case 'throughput':
+        return stats?.stats?.live_throughput || stats?.live_throughput ||
+               stats?.stats?.p50_throughput || stats?.p50_throughput || null;
+      case 'prompt_price':
+        return parseFloat(model.pricing.prompt);
+      case 'completion_price':
+        return parseFloat(model.pricing.completion);
+      case 'context_length':
+        return model.context_length || null;
+      case 'request_count':
+        return stats?.stats?.request_count || null;
+      // AA Benchmark metrics
+      case 'intelligence_index':
+        return aaRow?.['Intelligence Index'] || null;
+      case 'estimated_intelligence_index':
+        return aaRow?.['Estimated Intelligence Index'] || null;
+      case 'intelligence_index_per_m_output_tokens':
+        return aaRow?.['Intelligence Index per 1M Output Tokens'] || null;
+      case 'gpqa':
+        return aaRow?.['GPQA'] || null;
+      case 'hle':
+        return aaRow?.['HLE'] || null;
+      case 'humaneval':
+        return aaRow?.['HumanEval'] || null;
+      case 'math_500':
+        return aaRow?.['Math 500'] || null;
+      case 'mmlu_pro':
+        return aaRow?.['MMLU Pro'] || null;
+      case 'mmmu_pro':
+        return aaRow?.['MMMU Pro'] || null;
+      case 'ifbench':
+        return aaRow?.['IFBench'] || null;
+      case 'math_index':
+        return aaRow?.['Math Index'] || null;
+      case 'coding_index':
+        return aaRow?.['Coding Index'] || null;
+      case 'agentic_index':
+        return aaRow?.['Agentic Index'] || null;
+      case 'livecodebench':
+        return aaRow?.['LiveCodeBench'] || null;
+      case 'scicode':
+        return aaRow?.['SciCode'] || null;
+      case 'aime':
+        return aaRow?.['AIME'] || null;
+      case 'aime25':
+        return aaRow?.['AIME 25'] || null;
+      case 'lab_claimed_aime':
+        return aaRow?.['Lab-Claimed AIME'] || null;
+      case 'lab_claimed_math_500':
+        return aaRow?.['Lab-Claimed Math 500'] || null;
+      case 'lcr':
+        return aaRow?.['LCR'] || null;
+      case 'tau2':
+        return aaRow?.['TAU-2'] || null;
+      case 'terminalbench_hard':
+        return aaRow?.['TerminalBench Hard'] || null;
+      case 'multilingual_aa':
+        return aaRow?.['Multilingual AA'] || null;
+      default:
+        return null;
+    }
+  };
+
+  const getAxisLabel = (axis) => {
+    switch(axis) {
+      case 'latency': return 'Latency (ms)';
+      case 'throughput': return 'Throughput (tok/s)';
+      case 'prompt_price': return 'Input Price ($)';
+      case 'completion_price': return 'Output Price ($)';
+      case 'context_length': return 'Context Length';
+      case 'request_count': return 'Request Count';
+      case 'intelligence_index': return 'Intelligence Index';
+      case 'estimated_intelligence_index': return 'Estimated Intelligence Index';
+      case 'intelligence_index_per_m_output_tokens': return 'Intelligence Index per 1M Output Tokens';
+      case 'gpqa': return 'GPQA Score';
+      case 'hle': return 'HLE Score';
+      case 'humaneval': return 'HumanEval Score';
+      case 'math_500': return 'Math 500 Score';
+      case 'mmlu_pro': return 'MMLU Pro Score';
+      case 'mmmu_pro': return 'MMMU Pro Score';
+      case 'ifbench': return 'IFBench Score';
+      case 'math_index': return 'Math Index';
+      case 'coding_index': return 'Coding Index';
+      case 'agentic_index': return 'Agentic Index';
+      case 'livecodebench': return 'LiveCodeBench Score';
+      case 'scicode': return 'SciCode Score';
+      case 'aime': return 'AIME Score';
+      case 'aime25': return 'AIME 25 Score';
+      case 'lab_claimed_aime': return 'Lab-Claimed AIME';
+      case 'lab_claimed_math_500': return 'Lab-Claimed Math 500';
+      case 'lcr': return 'LCR';
+      case 'tau2': return 'TAU-2';
+      case 'terminalbench_hard': return 'TerminalBench Hard';
+      case 'multilingual_aa': return 'Multilingual AA';
+      default: return axis;
+    }
+  };
+
+  const formatValue = (val, axis) => {
+    if (val === null || val === undefined) return 'N/A';
+    if (axis.includes('price')) return formatPrice(val);
+    if (axis === 'latency') return `${val.toFixed(0)}ms`;
+    if (axis === 'throughput') return `${val.toFixed(1)} tok/s`;
+    if (axis === 'context_length') return val >= 1000000 ? `${(val/1000000).toFixed(1)}M` : `${(val/1000).toFixed(0)}K`;
+    if (axis === 'request_count') return val.toLocaleString();
+  if (axis === 'intelligence_index' || axis === 'estimated_intelligence_index' || axis === 'math_index' || axis === 'coding_index' || axis === 'agentic_index') {
+    return val.toFixed(1);
+  }
+  if (['gpqa','hle','humaneval','math_500','mmlu_pro','mmmu_pro','ifbench','livecodebench','scicode','aime','aime25','lcr','tau2','terminalbench_hard','multilingual_aa'].includes(axis)) {
+    return val < 2 ? `${(val * 100).toFixed(1)}%` : val.toFixed(1);
+  }
+    return val.toFixed(2);
+  };
+
+  const axisOptions = [
+    { value: 'latency', label: 'Latency' },
+    { value: 'throughput', label: 'Throughput' },
+    { value: 'prompt_price', label: 'Input Price' },
+    { value: 'completion_price', label: 'Output Price' },
+    { value: 'context_length', label: 'Context Length' },
+    { value: 'request_count', label: 'Request Count' },
+    { value: '---', label: '--- AA Benchmarks ---', disabled: true },
+    { value: 'intelligence_index', label: 'Intelligence Index' },
+    { value: 'estimated_intelligence_index', label: 'Estimated Intelligence Index' },
+    { value: 'intelligence_index_per_m_output_tokens', label: 'Intelligence per $ (1M out)' },
+    { value: 'gpqa', label: 'GPQA' },
+    { value: 'hle', label: 'HLE' },
+    { value: 'humaneval', label: 'HumanEval' },
+    { value: 'math_500', label: 'Math 500' },
+    { value: 'mmlu_pro', label: 'MMLU Pro' },
+    { value: 'mmmu_pro', label: 'MMMU Pro' },
+    { value: 'ifbench', label: 'IFBench' },
+    { value: 'math_index', label: 'Math Index' },
+    { value: 'coding_index', label: 'Coding Index' },
+    { value: 'agentic_index', label: 'Agentic Index' },
+    { value: 'livecodebench', label: 'LiveCodeBench' },
+    { value: 'scicode', label: 'SciCode' },
+    { value: 'aime', label: 'AIME' },
+    { value: 'aime25', label: 'AIME 25' },
+    { value: 'lab_claimed_aime', label: 'Lab-Claimed AIME' },
+    { value: 'lab_claimed_math_500', label: 'Lab-Claimed Math 500' },
+    { value: 'lcr', label: 'LCR' },
+    { value: 'tau2', label: 'TAU-2' },
+    { value: 'terminalbench_hard', label: 'TerminalBench Hard' },
+    { value: 'multilingual_aa', label: 'Multilingual AA' }
+  ];
+
+  // Filter models that have all three values
+  const validModels = models.filter(model => {
+    const x = getAxisValue(model, xAxis);
+    const y = getAxisValue(model, yAxis);
+    const c = getAxisValue(model, colorAxis);
+    return x !== null && y !== null && c !== null && !isNaN(x) && !isNaN(y) && !isNaN(c);
+  });
+
+  if (validModels.length === 0) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm p-8 text-center">
+        <p className="text-gray-500">No data available for the selected axes. Try loading stats first or selecting different metrics.</p>
+      </div>
+    );
+  }
+
+  // Get data ranges for binning
+  const xValues = validModels.map(m => getAxisValue(m, xAxis));
+  const yValues = validModels.map(m => getAxisValue(m, yAxis));
+  const colorValues = validModels.map(m => getAxisValue(m, colorAxis));
+
+  const xMin = Math.min(...xValues);
+  const xMax = Math.max(...xValues);
+  const yMin = Math.min(...yValues);
+  const yMax = Math.max(...yValues);
+  const colorMin = Math.min(...colorValues);
+  const colorMax = Math.max(...colorValues);
+
+  // Create adaptive bins based on data range
+  const createAdaptiveBins = (min, max, targetNumBins) => {
+    const range = max - min;
+    if (range === 0) return [min]; // Handle case where all values are the same
+
+    // Calculate bin size to get approximately targetNumBins bins
+    const binSize = range / targetNumBins;
+
+    const bins = [];
+    for (let i = 0; i <= targetNumBins; i++) {
+      bins.push(min + i * binSize);
+    }
+    return bins;
+  };
+
+  const xBins = createAdaptiveBins(xMin, xMax, numBins);
+  const yBins = createAdaptiveBins(yMin, yMax, numBins);
+  const xBinSize = xBins.length > 1 ? xBins[1] - xBins[0] : 1;
+  const yBinSize = yBins.length > 1 ? yBins[1] - yBins[0] : 1;
+
+  // Bin the data
+  const heatmapData = {};
+  validModels.forEach(model => {
+    const x = getAxisValue(model, xAxis);
+    const y = getAxisValue(model, yAxis);
+    const c = getAxisValue(model, colorAxis);
+
+    // Find the bin for x and y
+    let xBinIdx = -1;
+    let yBinIdx = -1;
+
+    for (let i = 0; i < xBins.length - 1; i++) {
+      if (x >= xBins[i] && x < xBins[i + 1]) {
+        xBinIdx = i;
+        break;
+      }
+    }
+    // Handle edge case: value equals max
+    if (xBinIdx === -1 && x === xMax) {
+      xBinIdx = xBins.length - 2;
+    }
+
+    for (let i = 0; i < yBins.length - 1; i++) {
+      if (y >= yBins[i] && y < yBins[i + 1]) {
+        yBinIdx = i;
+        break;
+      }
+    }
+    // Handle edge case: value equals max
+    if (yBinIdx === -1 && y === yMax) {
+      yBinIdx = yBins.length - 2;
+    }
+
+    if (xBinIdx !== -1 && yBinIdx !== -1) {
+      const xBin = xBins[xBinIdx];
+      const yBin = yBins[yBinIdx];
+      const xBinEnd = xBins[xBinIdx + 1];
+      const yBinEnd = yBins[yBinIdx + 1];
+      const key = `${xBinIdx},${yBinIdx}`;
+
+      if (!heatmapData[key]) {
+        heatmapData[key] = { values: [], models: [], xBin, yBin, xBinEnd, yBinEnd, xBinIdx, yBinIdx };
+      }
+      heatmapData[key].values.push(c);
+      heatmapData[key].models.push(model);
+    }
+  });
+
+  // Calculate average color value for each cell
+  Object.keys(heatmapData).forEach(key => {
+    const cell = heatmapData[key];
+    cell.avgColor = cell.values.reduce((sum, v) => sum + v, 0) / cell.values.length;
+  });
+
+  // Color scale function
+  const getColor = (value) => {
+    const normalized = (value - colorMin) / (colorMax - colorMin);
+    // Use a gradient from blue (low) to red (high)
+    const r = Math.round(255 * normalized);
+    const b = Math.round(255 * (1 - normalized));
+    return `rgb(${r}, 100, ${b})`;
+  };
+
+  const cellSize = 40;
+  const padding = 80;
+  const width = xBins.length * cellSize + 2 * padding;
+  const height = yBins.length * cellSize + 2 * padding;
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm p-6">
+      <div className="mb-6">
+        <div className="grid grid-cols-3 gap-4 mb-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">X-Axis (Binned)</label>
+            <select
+              value={xAxis}
+              onChange={(e) => onXAxisChange(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            >
+              {axisOptions.map(opt => (
+                <option key={opt.value} value={opt.value} disabled={opt.disabled}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Y-Axis (Binned)</label>
+            <select
+              value={yAxis}
+              onChange={(e) => onYAxisChange(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            >
+              {axisOptions.map(opt => (
+                <option key={opt.value} value={opt.value} disabled={opt.disabled}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Color (Continuous)</label>
+            <select
+              value={colorAxis}
+              onChange={(e) => onColorAxisChange(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            >
+              {axisOptions.map(opt => (
+                <option key={opt.value} value={opt.value} disabled={opt.disabled}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <label className="text-sm font-medium text-gray-700">Bins per axis:</label>
+          <input
+            type="range"
+            min="10"
+            max="100"
+            value={numBins}
+            onChange={(e) => setNumBins(parseInt(e.target.value))}
+            className="w-48"
+          />
+          <span className="text-sm text-gray-600 min-w-[3rem]">{numBins}</span>
+          <span className="text-xs text-gray-500">More bins = finer granularity, larger heatmap</span>
+        </div>
+      </div>
+
+      <div className="relative overflow-auto" id="heatmap-container">
+        <svg width={width} height={height} className="border border-gray-200 rounded">
+          {/* Draw heatmap cells */}
+          {Object.values(heatmapData).map((cell, idx) => {
+            const x = padding + cell.xBinIdx * cellSize;
+            const y = height - padding - (cell.yBinIdx + 1) * cellSize;
+
+            return (
+              <rect
+                key={idx}
+                x={x}
+                y={y}
+                width={cellSize}
+                height={cellSize}
+                fill={getColor(cell.avgColor)}
+                stroke="#fff"
+                strokeWidth="1"
+                className="cursor-pointer hover:opacity-80 transition-opacity"
+                onMouseEnter={(e) => {
+                  setHoveredCell(cell);
+                  // Get mouse position relative to the container for smart positioning
+                  const container = document.getElementById('heatmap-container');
+                  const rect = container.getBoundingClientRect();
+                  setTooltipPos({
+                    mouseX: e.clientX - rect.left,
+                    mouseY: e.clientY - rect.top,
+                    containerWidth: rect.width,
+                    containerHeight: rect.height
+                  });
+                }}
+                onMouseLeave={() => setHoveredCell(null)}
+              />
+            );
+          })}
+
+          {/* Axes */}
+          <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#374151" strokeWidth="2" />
+          <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="#374151" strokeWidth="2" />
+
+          {/* Axis labels */}
+          <text x={width / 2} y={height - 10} textAnchor="middle" className="text-sm fill-gray-700">{getAxisLabel(xAxis)}</text>
+          <text x={20} y={height / 2} textAnchor="middle" transform={`rotate(-90, 20, ${height/2})`} className="text-sm fill-gray-700">{getAxisLabel(yAxis)}</text>
+
+          {/* Tick labels - show a sample */}
+          {xBins.filter((_, i) => i % Math.max(1, Math.floor(xBins.length / 10)) === 0 && i < xBins.length - 1).map((bin, idx) => {
+            const binIdx = xBins.indexOf(bin);
+            const x = padding + binIdx * cellSize + cellSize / 2;
+            return (
+              <text key={idx} x={x} y={height - padding + 20} textAnchor="middle" className="text-xs fill-gray-600">
+                {formatValue(bin, xAxis)}
+              </text>
+            );
+          })}
+          {yBins.filter((_, i) => i % Math.max(1, Math.floor(yBins.length / 10)) === 0 && i < yBins.length - 1).map((bin, idx) => {
+            const binIdx = yBins.indexOf(bin);
+            const y = height - padding - binIdx * cellSize - cellSize / 2;
+            return (
+              <text key={idx} x={padding - 10} y={y} textAnchor="end" className="text-xs fill-gray-600">
+                {formatValue(bin, yAxis)}
+              </text>
+            );
+          })}
+        </svg>
+
+        {/* Tooltip - positioned next to hovered cell */}
+        {hoveredCell && (() => {
+          // Smart positioning: keep tooltip within bounds
+          const tooltipWidth = 350; // estimated max width
+          const tooltipHeight = 150; // estimated max height
+          const offset = 15; // distance from cursor
+
+          let left = tooltipPos.mouseX;
+          let top = tooltipPos.mouseY;
+          let translateX = '0';
+          let translateY = '-50%'; // center vertically by default
+
+          // Check horizontal bounds
+          if (left + tooltipWidth + offset > tooltipPos.containerWidth) {
+            // Not enough space on right, position to left
+            translateX = '-100%';
+            left = left - offset;
+          } else {
+            // Position to right
+            left = left + offset;
+          }
+
+          // Check vertical bounds
+          if (top - tooltipHeight / 2 < 0) {
+            // Would overflow top, align to top
+            translateY = '0';
+            top = 10;
+          } else if (top + tooltipHeight / 2 > tooltipPos.containerHeight) {
+            // Would overflow bottom, align to bottom
+            translateY = '-100%';
+            top = tooltipPos.containerHeight - 10;
+          }
+
+          return (
+            <div
+              className="absolute bg-gray-900 text-white rounded-lg p-3 text-sm z-50 max-w-sm pointer-events-none shadow-xl"
+              style={{
+                left: `${left}px`,
+                top: `${top}px`,
+                transform: `translate(${translateX}, ${translateY})`
+              }}
+            >
+        })()}
+            <div className="font-semibold mb-2">
+              {getAxisLabel(xAxis)}: {formatValue(hoveredCell.xBin, xAxis)} - {formatValue(hoveredCell.xBinEnd, xAxis)}
+              <br />
+              {getAxisLabel(yAxis)}: {formatValue(hoveredCell.yBin, yAxis)} - {formatValue(hoveredCell.yBinEnd, yAxis)}
+            </div>
+            <div className="text-gray-300">
+              Models in this cell: {hoveredCell.models.length}
+              <br />
+              Average {getAxisLabel(colorAxis)}: {formatValue(hoveredCell.avgColor, colorAxis)}
+            </div>
+            <div className="mt-2 text-xs text-gray-400">
+              {hoveredCell.models.slice(0, 5).map(m => m.id).join(', ')}
+              {hoveredCell.models.length > 5 && `, +${hoveredCell.models.length - 5} more`}
+            </div>
+          </div>
+          );
+        })()}
+      </div>
+
+      {/* Color legend */}
+      <div className="mt-4 flex items-center gap-4">
+        <span className="text-sm font-medium text-gray-700">{getAxisLabel(colorAxis)}:</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-600">{formatValue(colorMin, colorAxis)}</span>
+          <div className="w-64 h-6 rounded" style={{
+            background: `linear-gradient(to right, rgb(0, 100, 255), rgb(255, 100, 0))`
+          }}></div>
+          <span className="text-xs text-gray-600">{formatValue(colorMax, colorAxis)}</span>
+        </div>
+      </div>
+
+      <div className="mt-4 text-sm text-gray-500 text-center">
+        Showing {validModels.length} models • {Object.keys(heatmapData).length} cells with data
+      </div>
+    </div>
+  );
+};
+
+const MappingView = ({ models, mapping, setMapping, fetchAALeaderboard, aaLoading, aaError }) => {
+  const [search, setSearch] = useState('');
+
+  const modelOptions = useMemo(() => {
+    const opts = models.map(m => ({ id: m.id, label: `${m.name} — ${m.id}` }));
+    return opts.sort((a, b) => a.label.localeCompare(b.label));
+  }, [models]);
+
+  const filteredMapping = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return mapping;
+    return mapping.filter(item => {
+      const alias = item.alias.toLowerCase();
+      const target = item.targetId ? item.targetId.toLowerCase() : '';
+      return alias.includes(q) || target.includes(q);
+    });
+  }, [mapping, search]);
+
+  const handleChange = (alias, newId) => {
+    setMapping(prev => prev.map(it => it.alias === alias ? { ...it, targetId: newId || null } : it));
+  };
+
+  const mappedCount = mapping.filter(it => !!it.targetId).length;
+
+  const resetDefaults = () => setMapping(INITIAL_AA_MAPPING.map(x => ({ ...x })));
+  const clearAll = () => setMapping(mapping.map(x => ({ ...x, targetId: null })));
+  const exportJson = () => {
+    const obj = {};
+    mapping.forEach(it => { if (it.targetId) obj[it.alias] = it.targetId; });
+    const text = JSON.stringify(obj, null, 2);
+    const blob = new Blob([text], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `aa-mapping-${new Date().toISOString().split('T')[0]}.json`;
+    a.click(); URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm p-4">
+      <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 mb-4">
+        <div className="flex-1 relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+          <input
+            type="text"
+            placeholder="Search aliases or IDs..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+        </div>
+        <div className="flex items-center gap-2 text-sm text-gray-600">
+          <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded">{mappedCount} mapped</span>
+          <button onClick={resetDefaults} className="px-3 py-2 border rounded hover:bg-gray-50">Reset to defaults</button>
+          <button onClick={clearAll} className="px-3 py-2 border rounded hover:bg-gray-50">Clear all</button>
+          <button onClick={exportJson} className="px-3 py-2 border rounded hover:bg-gray-50 flex items-center gap-2">
+            <Download className="w-4 h-4" /> Export JSON
+          </button>
+          <button onClick={fetchAALeaderboard} disabled={aaLoading} className="px-3 py-2 border rounded hover:bg-gray-50 flex items-center gap-2 disabled:bg-gray-200 disabled:cursor-not-allowed">
+            <RefreshCw className={`w-4 h-4 ${aaLoading ? 'animate-spin' : ''}`} /> {aaLoading ? 'Fetching...' : 'Fetch AA Data'}
+          </button>
+        </div>
+      </div>
+
+      {aaError && (
+        <div className="bg-red-50 border-l-4 border-red-400 p-4 my-4">
+            <div className="text-sm text-red-700">
+                <strong>Error:</strong> {aaError}
+            </div>
+        </div>
+      )}
+
+      <div className="text-sm text-gray-600 mb-3">
+        This maps Set 1 aliases to OpenRouter models (Set 2). Changes auto-save to your browser.
+      </div>
+
+      <div className="overflow-x-auto border border-gray-200 rounded-lg">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Set 1 Alias</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mapped Set 2 (OpenRouter ID)</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Certainty</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-100">
+            {filteredMapping.map(item => (
+              <tr key={item.alias}>
+                <td className="px-4 py-3">
+                  <div className="font-medium text-gray-900">{item.alias}</div>
+                </td>
+                <td className="px-4 py-3">
+                  <select
+                    value={item.targetId || ''}
+                    onChange={(e) => handleChange(item.alias, e.target.value)}
+                    className="w-full max-w-xl px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Not mapped / Unknown</option>
+                    {modelOptions.map(opt => (
+                      <option key={opt.id} value={opt.id}>{opt.label}</option>
+                    ))}
+                  </select>
+                </td>
+                <td className="px-4 py-3">
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                    item.certainty === 'High' ? 'bg-green-100 text-green-800' :
+                    item.certainty === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-gray-100 text-gray-700'
+                  }`}>
+                    {item.certainty || '-'}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

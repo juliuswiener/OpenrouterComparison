@@ -1,0 +1,23 @@
+[Unit]
+Description=OpenRouter Dashboard Flask Proxy
+After=network-online.target network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/julius/00_projects/125_OpenrouterComparison
+# Ensure uv-managed venv exists and deps are installed
+ExecStartPre=-/usr/bin/env uv venv
+ExecStartPre=/usr/bin/env uv pip install -r requirements.txt -p .venv
+# Run using the uv-created virtualenv
+ExecStart=/home/julius/00_projects/125_OpenrouterComparison/.venv/bin/python server.py
+Environment=PYTHONUNBUFFERED=1
+Restart=always
+RestartSec=3
+TimeoutStopSec=15
+KillSignal=SIGINT
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
